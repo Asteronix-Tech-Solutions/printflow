@@ -61,15 +61,25 @@ pintflow/
 
 ## 🚀 Quick Start (Docker Compose)
 
+### Option A: Standalone Copy-Paste Deployment (No Repository Clone Required)
+Simply copy either `docker-compose.yml` or `docker-compose.prod.yml` into any folder on your server/local machine and run:
+```bash
+docker compose up -d
+```
+All published production images (`ghcr.io/asteronix-tech-solutions/pintflow-backend:latest` and `ghcr.io/asteronix-tech-solutions/pintflow-frontend:latest`), PostgreSQL database settings, and storage volumes will spin up automatically!
+
+### Option B: From Source Repository
 1. Clone the repository and navigate to the project directory:
    ```bash
-   cd pintflow
+   git clone https://github.com/Asteronix-Tech-Solutions/printflow.git
+   cd printflow
    ```
 
 2. Start the PostgreSQL, Go Backend, and Next.js Frontend containers:
    ```bash
-   docker compose up --build -d
+   docker compose up -d
    ```
+   *(To build images locally from source code, use `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d`)*
 
 3. Access the services:
    * **Next.js Web Dashboard**: [http://localhost:3000](http://localhost:3000)
@@ -90,6 +100,7 @@ Copy `.env.example` to `.env` or set environment variables:
 | `PRINTER_TYPE` | `ipp` | Driver type: `ipp`, `cups`, or `mock` |
 | `PRINTER_ADDRESS` | `192.168.1.100:9100` | Printer IP and port (e.g. Wi-Fi printer IP) |
 | `GOOGLE_CREDENTIALS_FILE` | `storage/credentials.json` | Path to Google Service Account JSON |
+| `GH_OWNER` | `asteronix-tech-solutions` | GitHub Owner/Organization for GHCR images |
 
 ---
 
@@ -136,11 +147,13 @@ PintFlow includes automated CI/CD GitHub Actions workflows in `.github/workflows
 
 2. **Automated Docker Image Publishing**:
    - Automatically builds and pushes production Docker images to GitHub Container Registry (`ghcr.io`):
-     - `ghcr.io/<owner>/pintflow-backend:latest`
-     - `ghcr.io/<owner>/pintflow-frontend:latest`
+     - `ghcr.io/asteronix-tech-solutions/pintflow-backend:latest`
+     - `ghcr.io/asteronix-tech-solutions/pintflow-frontend:latest`
 
 3. **Deploying pre-built GHCR images**:
    ```bash
-   GH_OWNER=your-github-username docker compose -f docker-compose.prod.yml up -d
+   docker compose up -d
    ```
+
+
 

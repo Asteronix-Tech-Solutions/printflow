@@ -1,45 +1,41 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: pintflow_postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: pintflow
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-pintflow}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d pintflow"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pintflow}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: ../Dockerfile.backend
+    image: ghcr.io/${GH_OWNER:-asteronix-tech-solutions}/pintflow-backend:latest
     container_name: pintflow_backend
     restart: always
     ports:
       - "8080:8080"
     environment:
-      PORT: "8080"
+      PORT: "${PORT:-8080}"
       DATABASE_DRIVER: "postgres"
-      DATABASE_URL: "postgres://postgres:postgrespassword@postgres:5432/pintflow?sslmode=disable"
-      WEBHOOK_SECRET: "pintflow_secret_token_123"
-      DEFAULT_PRINTER: "Brother_DCP_T430W"
-      PRINTER_TYPE: "ipp" # "ipp", "cups", "mock"
-      PRINTER_ADDRESS: "192.168.1.100:9100" # Update with your printer IP address
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/${POSTGRES_DB:-pintflow}?sslmode=disable"
+      WEBHOOK_SECRET: "${WEBHOOK_SECRET:-pintflow_secret_token_123}"
+      DEFAULT_PRINTER: "${DEFAULT_PRINTER:-Brother_DCP_T430W}"
+      PRINTER_TYPE: "${PRINTER_TYPE:-ipp}" # "ipp", "cups", "mock"
+      PRINTER_ADDRESS: "${PRINTER_ADDRESS:-192.168.1.100:9100}" # Update with your printer IP address
       GOOGLE_CREDENTIALS_FILE: "/app/storage/credentials.json"
       TEMP_DIR: "/app/storage/temp"
       ARCHIVE_DIR: "/app/storage/archive"
       LOG_DIR: "/app/storage/logs"
-      MAX_CONCURRENT_JOBS: "3"
+      MAX_CONCURRENT_JOBS: "${MAX_CONCURRENT_JOBS:-3}"
     volumes:
       - ./storage:/app/storage
     depends_on:
@@ -47,17 +43,17 @@ services:
         condition: service_healthy
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: ../Dockerfile.frontend
+    image: ghcr.io/${GH_OWNER:-asteronix-tech-solutions}/pintflow-frontend:latest
     container_name: pintflow_frontend
     restart: always
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}"
     depends_on:
       - backend
 
 volumes:
   postgres-data:
+
+

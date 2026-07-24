@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -14,13 +12,13 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d pintflow"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pintflow}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   backend:
-    image: ghcr.io/${GH_OWNER:-organization}/pintflow-backend:latest
+    image: ghcr.io/${GH_OWNER:-asteronix-tech-solutions}/pintflow-backend:latest
     container_name: pintflow_backend
     restart: always
     ports:
@@ -45,7 +43,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ghcr.io/${GH_OWNER:-organization}/pintflow-frontend:latest
+    image: ghcr.io/${GH_OWNER:-asteronix-tech-solutions}/pintflow-frontend:latest
     container_name: pintflow_frontend
     restart: always
     ports:
@@ -57,3 +55,5 @@ services:
 
 volumes:
   postgres-data:
+
+
