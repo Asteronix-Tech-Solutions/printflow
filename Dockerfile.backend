@@ -1,0 +1,27 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Install ca-certificates and cups client libraries for CUPS support if needed
+RUN apk add --no-cache git ca-certificates cups-client
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o pintflow-server ./cmd/server
+
+# Final runtime stage
+FROM alpine:3.19
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates cups-client netcat-openbsd tzdata
+
+COPY --from=builder /app/pintflow-server .
+
+EXPOSE 8080
+
+CMD ["./pintflow-server"]
