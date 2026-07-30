@@ -22,16 +22,6 @@ export interface FormQuestionAnswer {
   answer: string;
 }
 
-export interface FormTemplate {
-  id: string;
-  name: string;
-  description: string;
-  is_system: boolean;
-  content_html: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Job {
   id: string;
   status: 'pending' | 'downloading' | 'downloaded' | 'processing' | 'ready' | 'printing' | 'completed' | 'failed' | 'cancelled';
@@ -160,58 +150,6 @@ export async function cancelJob(jobId: string): Promise<{ success: boolean; mess
 export async function fetchLogs(limit = 100): Promise<{ logs: LogEntry[]; count: number }> {
   const res = await fetch(`${API_BASE_URL}/logs?limit=${limit}`, { headers: getAuthHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch logs');
-  return res.json();
-}
-
-export async function fetchTemplates(): Promise<{ templates: FormTemplate[]; count: number }> {
-  const res = await fetch(`${API_BASE_URL}/templates`, { headers: getAuthHeaders(), cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch templates');
-  return res.json();
-}
-
-export async function saveTemplate(templateData: Partial<FormTemplate>): Promise<{ success: boolean; template: FormTemplate }> {
-  const res = await fetch(`${API_BASE_URL}/templates`, {
-    method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(templateData),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to save template');
-  }
-  return res.json();
-}
-
-export async function deleteTemplate(templateId: string): Promise<{ success: boolean }> {
-  const res = await fetch(`${API_BASE_URL}/templates/${templateId}`, { method: 'DELETE', headers: getAuthHeaders() });
-  if (!res.ok) throw new Error('Failed to delete template');
-  return res.json();
-}
-
-export async function previewTemplate(payload: {
-  template_html?: string;
-  template_id?: string;
-  form_title?: string;
-  user_name?: string;
-  user_email?: string;
-  form_responses?: FormQuestionAnswer[];
-}): Promise<{ html: string }> {
-  const res = await fetch(`${API_BASE_URL}/formatter/preview`, {
-    method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error('Failed to render template preview');
-  return res.json();
-}
-
-export async function reformatJob(jobId: string, templateId: string, reprint = false): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`${API_BASE_URL}/jobs/${jobId}/reformat`, {
-    method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ template_id: templateId, reprint }),
-  });
-  if (!res.ok) throw new Error('Failed to reformat job');
   return res.json();
 }
 

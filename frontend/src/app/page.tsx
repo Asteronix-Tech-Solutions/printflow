@@ -6,8 +6,6 @@ import { MetricCards } from '../components/MetricCards';
 import { JobList } from '../components/JobList';
 import { QueueJobModal } from '../components/QueueJobModal';
 import { PrinterConfigModal } from '../components/PrinterConfigModal';
-import { TemplateManagerModal } from '../components/TemplateManagerModal';
-import { FormResponseViewerModal } from '../components/FormResponseViewerModal';
 import { LogViewer } from '../components/LogViewer';
 import {
   fetchHealth,
@@ -27,8 +25,6 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [selectedViewerJob, setSelectedViewerJob] = useState<Job | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -81,7 +77,6 @@ export default function DashboardPage() {
         printer={health?.printer}
         onOpenQueueModal={() => setIsQueueModalOpen(true)}
         onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
-        onOpenTemplateModal={() => setIsTemplateModalOpen(true)}
         onRefresh={loadData}
         isRefreshing={isRefreshing}
       />
@@ -94,7 +89,6 @@ export default function DashboardPage() {
         onFilterChange={setActiveFilter}
         onRetry={handleRetryJob}
         onCancel={handleCancelJob}
-        onViewForm={(job) => setSelectedViewerJob(job)}
       />
 
       <LogViewer logs={logs} />
@@ -109,18 +103,6 @@ export default function DashboardPage() {
         isOpen={isPrinterModalOpen}
         onClose={() => setIsPrinterModalOpen(false)}
         onConfigSaved={loadData}
-      />
-
-      <TemplateManagerModal
-        isOpen={isTemplateModalOpen}
-        onClose={() => setIsTemplateModalOpen(false)}
-      />
-
-      <FormResponseViewerModal
-        job={selectedViewerJob}
-        isOpen={!!selectedViewerJob}
-        onClose={() => setSelectedViewerJob(null)}
-        onJobUpdated={loadData}
       />
     </div>
   );

@@ -1,14 +1,13 @@
 'use client';
 
 import React from 'react';
-import { Printer, RefreshCw, PlusCircle, Settings, Palette, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Printer, RefreshCw, PlusCircle, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PrinterStatus } from '../lib/api';
 
 interface HeaderProps {
   printer?: PrinterStatus;
   onOpenQueueModal: () => void;
   onOpenPrinterModal: () => void;
-  onOpenTemplateModal: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -17,7 +16,6 @@ export const Header: React.FC<HeaderProps> = ({
   printer,
   onOpenQueueModal,
   onOpenPrinterModal,
-  onOpenTemplateModal,
   onRefresh,
   isRefreshing,
 }) => {
@@ -61,15 +59,6 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
         )}
-
-        {/* Form Templates & Layout Designer */}
-        <button
-          onClick={onOpenTemplateModal}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-xl font-semibold text-xs border border-purple-500/30 transition-all active:scale-95"
-        >
-          <Palette className="w-4 h-4 text-purple-400" />
-          <span>Form Layouts</span>
-        </button>
 
         {/* Single Settings Button */}
         <button

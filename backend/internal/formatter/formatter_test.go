@@ -68,7 +68,7 @@ func TestGeneratePDFBytesAllTemplates(t *testing.T) {
 		},
 	}
 
-	templates := []string{"property_checkin", "default", "compact_pass", "id_compliance"}
+	templates := []string{"property_checkin", "default"}
 	for _, tmplID := range templates {
 		bytes, err := fmtEngine.GeneratePDFBytes(job, tmplID)
 		if err != nil {

@@ -41,24 +41,6 @@ func (f *Formatter) GetSystemTemplates() []*models.FormTemplate {
 			CreatedAt:   now,
 			UpdatedAt:   now,
 		},
-		{
-			ID:          "compact_pass",
-			Name:        "Compact Guest Pass & Voucher",
-			Description: "Compact 2-column card design tailored for quick printouts and thermal/A5 check-in passes.",
-			IsSystem:    true,
-			ContentHTML: systemTemplateCompactPass,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-		},
-		{
-			ID:          "id_compliance",
-			Name:        "ID & Security Compliance Form",
-			Description: "Security audit layout emphasizing uploaded ID verification (Aadhar/Passport) & legal responsibility disclaimer.",
-			IsSystem:    true,
-			ContentHTML: systemTemplateIDCompliance,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-		},
 	}
 }
 

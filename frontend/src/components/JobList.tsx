@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, RotateCcw, XCircle, FileText, User, Calendar, Printer, Eye, Download, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Search, RotateCcw, XCircle, FileText, User, Calendar, Printer, Download, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { Job, getJobPDFUrl } from '../lib/api';
 
 interface JobListProps {
@@ -10,7 +10,6 @@ interface JobListProps {
   onFilterChange: (filter: string) => void;
   onRetry: (id: string) => void;
   onCancel: (id: string) => void;
-  onViewForm?: (job: Job) => void;
 }
 
 export const JobList: React.FC<JobListProps> = ({
@@ -19,7 +18,6 @@ export const JobList: React.FC<JobListProps> = ({
   onFilterChange,
   onRetry,
   onCancel,
-  onViewForm,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -196,16 +194,6 @@ export const JobList: React.FC<JobListProps> = ({
                   </td>
                   <td className="py-3.5 px-3.5 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {onViewForm && (
-                        <button
-                          onClick={() => onViewForm(job)}
-                          className="px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                          title="Inspect document preview and form responses"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>View Form</span>
-                        </button>
-                      )}
                       {(job.form_responses && job.form_responses.length > 0) && (
                         <a
                           href={getJobPDFUrl(job.id)}
