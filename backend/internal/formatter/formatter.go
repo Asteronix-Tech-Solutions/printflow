@@ -299,8 +299,27 @@ func (f *Formatter) renderPropertyCheckinPDF(pdf *fpdf.Fpdf, data TemplateDataCo
 		pdf.SetDrawColor(226, 232, 240)
 		pdf.Rect(12, imgY, 186, 118, "DF")
 
-		if guest.ImagePath != "" {
-			pdf.ImageOptions(guest.ImagePath, 15, imgY+3, 180, 112, false, fpdf.ImageOptions{ImageType: ""}, 0, "")
+		imgPaths := guest.ImagePaths
+		if len(imgPaths) == 0 && guest.ImagePath != "" {
+			imgPaths = []string{guest.ImagePath}
+		}
+
+		if len(imgPaths) >= 2 {
+			// Render images side by side within the picture area
+			imgCount := len(imgPaths)
+			if imgCount > 4 {
+				imgCount = 4 // cap at 4 side-by-side
+			}
+			gap := 3.0                                                        // gap between images in mm
+			totalGap := gap * float64(imgCount-1)                             // total gap space
+			imgW := (180.0 - totalGap) / float64(imgCount)                    // width per image
+			imgH := 112.0                                                     // full height of picture area
+			for j := 0; j < imgCount; j++ {
+				imgX := 15.0 + float64(j)*(imgW+gap)
+				pdf.ImageOptions(imgPaths[j], imgX, imgY+3, imgW, imgH, false, fpdf.ImageOptions{ImageType: ""}, 0, "")
+			}
+		} else if len(imgPaths) == 1 {
+			pdf.ImageOptions(imgPaths[0], 15, imgY+3, 180, 112, false, fpdf.ImageOptions{ImageType: ""}, 0, "")
 		} else {
 			pdf.SetTextColor(100, 116, 139)
 			pdf.SetFont("Arial", "I", 10)
@@ -600,12 +619,13 @@ func sanitizeText(str string) string {
 
 
 type GuestDetails struct {
-	Index     int
-	Name      string
-	Age       string
-	Phone     string
-	Gender    string
-	ImagePath string
+	Index      int
+	Name       string
+	Age        string
+	Phone      string
+	Gender     string
+	ImagePath  string   // primary image (kept for backward compat)
+	ImagePaths []string // all images for this guest
 }
 
 type TemplateDataContext struct {
@@ -656,9 +676,9 @@ func (f *Formatter) extractGuests(data TemplateDataContext) []GuestDetails {
 		}
 	}
 
-	if len(data.ImagePaths) > maxCount {
-		maxCount = len(data.ImagePaths)
-	}
+	// NOTE: We no longer inflate maxCount from image count.
+	// Extra images beyond the guest count are assigned to the
+	// corresponding guest (side-by-side rendering).
 
 	if maxCount > 20 {
 		maxCount = 20
@@ -708,30 +728,37 @@ func (f *Formatter) extractGuests(data TemplateDataContext) []GuestDetails {
 			gGender = getVal("gender")
 		}
 
-		imgPath := ""
-		if i-1 < len(data.ImagePaths) {
-			imgPath = data.ImagePaths[i-1]
-		}
-
 		guests = append(guests, GuestDetails{
-			Index:     i,
-			Name:      gName,
-			Age:       gAge,
-			Phone:     gPhone,
-			Gender:    gGender,
-			ImagePath: imgPath,
+			Index:  i,
+			Name:   gName,
+			Age:    gAge,
+			Phone:  gPhone,
+			Gender: gGender,
 		})
 	}
 
 	if len(guests) == 0 {
 		guests = append(guests, GuestDetails{
-			Index:     1,
-			Name:      data.UserName,
-			Age:       getVal("ages", "age"),
-			Phone:     primaryPhone,
-			Gender:    getVal("gender"),
-			ImagePath: ternaryStr(len(data.ImagePaths) > 0, data.ImagePaths[0], ""),
+			Index:  1,
+			Name:   data.UserName,
+			Age:    getVal("ages", "age"),
+			Phone:  primaryPhone,
+			Gender: getVal("gender"),
 		})
+	}
+
+	// Distribute images among guests.
+	// Each guest gets one image in order. Any remaining images are
+	// appended to the last guest so they render side-by-side.
+	for idx := 0; idx < len(data.ImagePaths); idx++ {
+		if idx < len(guests) {
+			guests[idx].ImagePaths = append(guests[idx].ImagePaths, data.ImagePaths[idx])
+			guests[idx].ImagePath = data.ImagePaths[idx]
+		} else {
+			// Extra images go to the last guest
+			last := len(guests) - 1
+			guests[last].ImagePaths = append(guests[last].ImagePaths, data.ImagePaths[idx])
+		}
 	}
 
 	return guests
