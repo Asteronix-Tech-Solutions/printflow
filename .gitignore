@@ -11,16 +11,22 @@ frontend/.vercel/
 # Go Binaries & Compiles
 backend/server
 backend/server.exe
+backend/pintflow-server*
 backend/*.exe
 *.test
 *.out
 *.prof
+*.tsbuildinfo
 
 # Storage & Runtime Files
-storage
-storage/temp/*
-storage/archive/*
-storage/logs/*
+/storage
+/storage/temp/*
+/storage/archive/*
+/storage/logs/*
+backend/storage
+backend/storage/temp/*
+backend/storage/archive/*
+backend/storage/logs/*
 !storage/temp/.gitkeep
 !storage/archive/.gitkeep
 !storage/logs/.gitkeep
