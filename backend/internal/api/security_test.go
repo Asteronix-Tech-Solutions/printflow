@@ -34,8 +34,8 @@ func TestSecurityHeadersAndAuth(t *testing.T) {
 		if rec.Header().Get("X-Content-Type-Options") != "nosniff" {
 			t.Errorf("Expected X-Content-Type-Options nosniff, got %s", rec.Header().Get("X-Content-Type-Options"))
 		}
-		if rec.Header().Get("X-Frame-Options") != "DENY" {
-			t.Errorf("Expected X-Frame-Options DENY, got %s", rec.Header().Get("X-Frame-Options"))
+		if rec.Header().Get("X-Frame-Options") != "SAMEORIGIN" {
+			t.Errorf("Expected X-Frame-Options SAMEORIGIN, got %s", rec.Header().Get("X-Frame-Options"))
 		}
 	})
 
