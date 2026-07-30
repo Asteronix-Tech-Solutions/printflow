@@ -3,7 +3,6 @@ package printer
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"pintflow/backend/internal/models"
