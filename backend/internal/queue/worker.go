@@ -144,11 +144,12 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 			_ = wp.db.UpdateJobStatus(job.ID, models.StatusFailed, errMsg)
 			return
 		}
-	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) {
+	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) || len(job.FormResponses) > 0 || job.FormTitle != "" {
 		_ = wp.db.UpdateJobStatus(job.ID, models.StatusCompleted, "")
-		wp.logger.InfoJ(job.ID, "Job completed successfully (Form summary response sheet printed)!")
+		wp.logger.InfoJ(job.ID, "Job completed successfully (Combined Form Details & Embedded Photo ID printed!)")
 		return
 	}
+
 
 	// Step 3: Processing & Metadata
 	_ = wp.db.UpdateJobStatus(job.ID, models.StatusProcessing, "")

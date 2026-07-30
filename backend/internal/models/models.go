@@ -96,6 +96,13 @@ type PrinterConfig struct {
 	Copies    int    `json:"copies"`
 }
 
+// UploadedFileEntry represents a single uploaded file in a multi-file webhook payload
+type UploadedFileEntry struct {
+	FileName      string `json:"file_name"`
+	FileData      string `json:"file_data"`
+	QuestionTitle string `json:"question_title,omitempty"`
+}
+
 // WebhookPayload represents request data received from Google Apps Script
 type WebhookPayload struct {
 	Secret        string               `json:"secret"`
@@ -104,12 +111,16 @@ type WebhookPayload struct {
 	UserEmail     string               `json:"user_email,omitempty"`
 	FileID        string               `json:"file_id,omitempty"`
 	Filename      string               `json:"filename,omitempty"`
+	FileData      string               `json:"file_data,omitempty"`       // base64 encoded file data (first/primary file)
+	FilesData     []UploadedFileEntry  `json:"files_data,omitempty"`     // array of all uploaded files
 	Printer       string               `json:"printer,omitempty"`
 	Copies        int                  `json:"copies,omitempty"`
 	FormTitle     string               `json:"form_title,omitempty"`
 	FormResponses []FormQuestionAnswer `json:"form_responses,omitempty"`
 	TemplateID    string               `json:"template_id,omitempty"`
 }
+
+
 
 // ManualQueuePayload represents request data when queuing a job from WebApp
 type ManualQueuePayload struct {

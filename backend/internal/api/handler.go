@@ -86,11 +86,47 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		TemplateID:       payload.TemplateID,
 	}
 
+	// Handle base64 encoded file data if provided in webhook payload
+	// If files_data array is present, decode ALL files as separate temp files
+	if len(payload.FilesData) > 0 {
+		for idx, fileEntry := range payload.FilesData {
+			if fileEntry.FileData == "" {
+				continue
+			}
+			rawBytes, err := base64.StdEncoding.DecodeString(cleanBase64(fileEntry.FileData))
+			if err == nil && len(rawBytes) > 0 {
+				fileName := fileEntry.FileName
+				if fileName == "" {
+					fileName = fmt.Sprintf("upload_%d.jpg", idx+1)
+				}
+				tempPath := h.storage.TempPathForJob(job.ID, fmt.Sprintf("file_%d_%s", idx+1, fileName))
+				if err := os.WriteFile(tempPath, rawBytes, 0644); err == nil {
+					// Use first file as the primary temp file too
+					if idx == 0 {
+						primaryPath := h.storage.TempPathForJob(job.ID, payload.Filename)
+						_ = os.WriteFile(primaryPath, rawBytes, 0644)
+					}
+					job.GoogleFileID = "" // clear drive ID so worker uses local files directly
+				}
+			}
+		}
+	} else if payload.FileData != "" {
+		rawBytes, err := base64.StdEncoding.DecodeString(cleanBase64(payload.FileData))
+		if err == nil && len(rawBytes) > 0 {
+			tempPath := h.storage.TempPathForJob(job.ID, payload.Filename)
+			if err := os.WriteFile(tempPath, rawBytes, 0644); err == nil {
+				job.GoogleFileID = "" // clear drive ID so worker uses local file directly
+			}
+		}
+	}
+
+
 	if err := h.db.CreateJob(job); err != nil {
 		h.logger.Error(fmt.Sprintf("Failed to save webhook job to database: %v", err))
 		http.Error(w, `{"error":"failed to create print job"}`, http.StatusInternalServerError)
 		return
 	}
+
 
 	h.logger.Info(fmt.Sprintf("Webhook received and job created: %s for user %s", job.ID, job.UserName))
 	h.queue.NotifyNewJob()

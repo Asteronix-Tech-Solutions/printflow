@@ -204,190 +204,272 @@ func (f *Formatter) renderPropertyCheckinPDF(pdf *fpdf.Fpdf, data TemplateDataCo
 	phone := getVal("phone", "mobile", "contact")
 	marital := getVal("my/our martial status is", "marital status", "marital")
 	purpose := getVal("purpose of visit", "purpose")
-	selection := getVal("guest selection", "guests")
+	selection := getVal("guest selection", "add another guest", "guests")
 
 	g1Name := getVal("name of guest 1", "guest 1 name", "name")
 	if g1Name == "N/A" {
 		g1Name = data.UserName
 	}
-	g1Age := getVal("ages", "age")
-	g1Gender := getVal("guest 1 gender", "gender")
+	g1Age := getVal("ages", "age", "age of guest 1")
 
 	g2Name := getVal("name of guest 2", "guest 2 name", "guest 2")
-	g2Gender := getVal("guest 2 gender")
+	g2Age := getVal("age of guest 2", "guest 2 age")
+	g2Phone := getVal("phone of guest 2", "guest 2 phone", "phone number of guest 2", "guest 2 mobile")
 
-	// --- PAGE 1: PRIMARY GUEST & GUEST 1 CARD ---
+	hasGuest2 := (g2Name != "N/A" && g2Name != "" && !strings.EqualFold(g2Name, g1Name)) ||
+		strings.Contains(strings.ToLower(selection), "2") ||
+		strings.Contains(strings.ToLower(selection), "couple") ||
+		strings.Contains(strings.ToLower(selection), "family")
+
+	// ==========================================
+	// --- PAGE 1: GUEST 1 DETAILS + PHOTO ID ---
+	// ==========================================
 	pdf.AddPage()
 
-	// Header Banner
-	pdf.SetFillColor(30, 58, 138)
-	pdf.Rect(12, 12, 186, 22, "F")
+	// Header Banner - SMART HOME NEXUS : GUEST REGISTER
+	pdf.SetFillColor(15, 23, 42) // slate-900
+	pdf.Rect(12, 10, 186, 22, "F")
 	pdf.SetTextColor(255, 255, 255)
 	pdf.SetFont("Arial", "B", 13)
-	pdf.Cell(120, 6, "Guest Information Form")
-	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(0, 6, strings.ToUpper("Property & Guest Check-in Card"))
-	pdf.Ln(6)
+	pdf.SetXY(16, 13)
+	pdf.Cell(130, 6, "SMART HOME NEXUS : GUEST REGISTER")
+	pdf.SetFont("Arial", "", 8)
+	pdf.SetTextColor(148, 163, 184) // slate-400
+	pdf.SetXY(16, 20)
+	pdf.Cell(90, 4, "https://smarthomenexus.net")
+	pdf.SetXY(16, 25)
+	pdf.Cell(90, 4, "Guest 1 Details & Photo ID Proof")
 
-	pdf.SetFont("Arial", "", 9)
-	pdf.SetTextColor(220, 225, 240)
-	pdf.Cell(120, 5, "Automated Guest Check-in Record | Guest 1 Registration")
+	// Page indicator top-right
+	pdf.SetTextColor(255, 255, 255)
+	pdf.SetFont("Arial", "B", 8)
+	pdf.SetXY(155, 13)
+	pdf.Cell(40, 5, fmt.Sprintf("PAGE 1 OF %d", ternaryInt(hasGuest2, 2, 1)))
 
-	pdf.SetY(38)
+	// Licenses Row
+	pdf.SetFillColor(241, 245, 249) // slate-100
+	pdf.SetDrawColor(226, 232, 240)
+	pdf.Rect(12, 34, 186, 10, "DF")
+	pdf.SetTextColor(71, 85, 105) // slate-500
+	pdf.SetFont("Arial", "", 7.5)
+	pdf.SetXY(16, 36)
+	pdf.Cell(90, 5, "CE 1: <Placeholder>")
+	pdf.SetXY(110, 36)
+	pdf.Cell(84, 5, "CE 2: <Placeholder>")
 
 	// Property & Booking Info Box
-	pdf.SetFillColor(240, 253, 244)
+	pdf.SetFillColor(240, 253, 244) // green-50
 	pdf.SetDrawColor(187, 247, 208)
-	pdf.Rect(12, 38, 186, 20, "DF")
+	pdf.Rect(12, 46, 186, 16, "DF")
 	pdf.SetTextColor(22, 101, 52)
-	pdf.SetFont("Arial", "B", 10)
-	pdf.SetXY(16, 41)
-	pdf.Cell(90, 5, "Booked Property: "+sanitizeText(propName))
+	pdf.SetFont("Arial", "B", 9)
+	pdf.SetXY(16, 48)
+	pdf.Cell(90, 4, "Property: "+sanitizeText(propName))
 	pdf.SetTextColor(71, 85, 105)
-	pdf.SetFont("Arial", "", 9)
-	pdf.SetXY(110, 41)
-	pdf.Cell(84, 5, "Submitted: "+sanitizeText(data.CreatedAtFormatted))
-	pdf.SetXY(16, 49)
-	pdf.Cell(90, 5, fmt.Sprintf("Check-in: %s  |  Check-out: %s", sanitizeText(checkinDate), sanitizeText(checkoutDate)))
-	pdf.SetXY(110, 49)
-	pdf.Cell(84, 5, "Job ID: "+sanitizeText(data.JobID))
+	pdf.SetFont("Arial", "", 8)
+	pdf.SetXY(110, 48)
+	pdf.Cell(84, 4, "Submitted: "+sanitizeText(data.CreatedAtFormatted))
+	pdf.SetXY(16, 55)
+	pdf.Cell(90, 4, fmt.Sprintf("Check-in: %s  |  Check-out: %s", sanitizeText(checkinDate), sanitizeText(checkoutDate)))
 
-	// Primary Guest & Contact Info Grid
-	pdf.SetY(62)
-	pdf.SetTextColor(30, 58, 138)
-	pdf.SetFont("Arial", "B", 11)
-	pdf.Cell(186, 6, "PRIMARY GUEST & CONTACT DETAILS")
-	pdf.Ln(7)
-
-	f.renderInfoBox(pdf, 12, pdf.GetY(), 59, 14, "Primary Guest", data.UserName)
-	f.renderInfoBox(pdf, 75, pdf.GetY(), 59, 14, "Phone", phone)
-	f.renderInfoBox(pdf, 138, pdf.GetY(), 60, 14, "Email", data.UserEmail)
-	pdf.SetY(pdf.GetY() + 16)
-	f.renderInfoBox(pdf, 12, pdf.GetY(), 59, 14, "Marital Status", marital)
-	f.renderInfoBox(pdf, 75, pdf.GetY(), 59, 14, "Purpose of Visit", purpose)
-	f.renderInfoBox(pdf, 138, pdf.GetY(), 60, 14, "Guest Selection", selection)
-	pdf.SetY(pdf.GetY() + 18)
-
-	// Guest 1 Registration Card
-	pdf.SetTextColor(30, 58, 138)
-	pdf.SetFont("Arial", "B", 11)
-	pdf.Cell(186, 6, "GUEST 1 REGISTRATION CARD")
-	pdf.Ln(7)
-
-	f.renderInfoBox(pdf, 12, pdf.GetY(), 59, 14, "Guest 1 Name", g1Name)
-	f.renderInfoBox(pdf, 75, pdf.GetY(), 59, 14, "Age", g1Age)
-	f.renderInfoBox(pdf, 138, pdf.GetY(), 60, 14, "Gender", g1Gender)
-	pdf.SetY(pdf.GetY() + 18)
-
-	// Question-Answer Full Response Summary Table
-	pdf.SetTextColor(30, 58, 138)
+	// Guest 1 Info Grid
+	pdf.SetY(65)
+	pdf.SetTextColor(15, 23, 42)
 	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(186, 6, "SUBMITTED FORM RESPONSES")
+	pdf.Cell(186, 5, "GUEST 1 INFORMATION & CONTACT DETAILS")
 	pdf.Ln(6)
 
-	f.renderQATable(pdf, data.Responses)
-
-	// Statement of Responsibility Box
-	pdf.Ln(4)
-	pdf.SetFillColor(254, 252, 232)
-	pdf.SetDrawColor(254, 240, 138)
 	currY := pdf.GetY()
-	pdf.Rect(12, currY, 186, 18, "DF")
+	f.renderInfoBox(pdf, 12, currY, 59, 13, "Guest 1 Full Name", g1Name)
+	f.renderInfoBox(pdf, 75, currY, 59, 13, "Phone Number", phone)
+	f.renderInfoBox(pdf, 138, currY, 60, 13, "Email Address", data.UserEmail)
+
+	currY += 15
+	f.renderInfoBox(pdf, 12, currY, 59, 13, "Age", g1Age)
+	f.renderInfoBox(pdf, 75, currY, 59, 13, "Marital Status", marital)
+	f.renderInfoBox(pdf, 138, currY, 60, 13, "Purpose of Visit", purpose)
+	pdf.SetY(currY + 16)
+
+	// Embedded Photo ID Image Box
+	pdf.SetTextColor(15, 23, 42)
+	pdf.SetFont("Arial", "B", 9)
+	pdf.Cell(186, 5, "GUEST 1 UPLOADED PHOTO ID PROOF (AADHAR / PASSPORT)")
+	pdf.Ln(5)
+
+	imgY := pdf.GetY()
+	pdf.SetFillColor(248, 250, 252)
+	pdf.SetDrawColor(226, 232, 240)
+	pdf.Rect(12, imgY, 186, 118, "DF")
+
+	if len(data.ImagePaths) > 0 {
+		imgPath := data.ImagePaths[0]
+		pdf.ImageOptions(imgPath, 15, imgY+3, 180, 112, false, fpdf.ImageOptions{ImageType: ""}, 0, "")
+	} else {
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "I", 10)
+		pdf.SetXY(15, imgY+52)
+		pdf.Cell(180, 6, "[ No Photo ID image attached for Guest 1 ]")
+	}
+	pdf.SetY(imgY + 121)
+
+	// Statement of Responsibility
+	pdf.SetFillColor(254, 252, 232) // amber-50
+	pdf.SetDrawColor(254, 240, 138)
+	stmtY := pdf.GetY()
+	pdf.Rect(12, stmtY, 186, 14, "DF")
 	pdf.SetTextColor(133, 89, 0)
-	pdf.SetFont("Arial", "B", 8)
-	pdf.SetXY(15, currY+2)
-	pdf.Cell(180, 4, "STATEMENT OF RESPONSIBILITY & GUEST ID COMPLIANCE:")
-	pdf.SetFont("Arial", "", 8)
-	pdf.SetXY(15, currY+7)
-	pdf.MultiCell(180, 4, "All guests verify providing authentic ID proof (Aadhar Card or Passport with clear Name, Photo, address & Number). Guest agrees to comply with property safety guidelines, check-in policies, and local regulations.", "", "L", false)
+	pdf.SetFont("Arial", "B", 7)
+	pdf.SetXY(15, stmtY+2)
+	pdf.Cell(180, 3, "STATEMENT OF RESPONSIBILITY & GUEST ID COMPLIANCE:")
+	pdf.SetFont("Arial", "", 7)
+	pdf.SetXY(15, stmtY+5.5)
+	pdf.MultiCell(180, 3, "Guest 1 verifies providing authentic ID proof. Guest agrees to comply with property safety guidelines, check-in policies, and local regulations.", "", "L", false)
 
-	// Signature Section at Bottom
-	pdf.SetY(currY + 22)
-	f.renderSignatureBlock(pdf, "Guest 1 Signature", data.JobID, "Property Manager Signature")
+	// Digital Signature Notice
+	pdf.SetY(stmtY + 16)
+	pdf.SetTextColor(100, 116, 139)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(186, 4, "Document Digitally Signed. No signature required.")
 
-	// --- PAGE 2: GUEST 2 CARD (IF APPLICABLE) ---
-	if g2Name != "N/A" || strings.Contains(strings.ToLower(selection), "2") || strings.Contains(strings.ToLower(selection), "couple") || strings.Contains(strings.ToLower(selection), "family") {
+	// Footer with Job ID
+	pdf.SetY(280)
+	pdf.SetTextColor(148, 163, 184)
+	pdf.SetFont("Arial", "", 7)
+	pdf.Cell(93, 4, "Smart Home Nexus | smarthomenexus.net")
+	pdf.Cell(93, 4, "Job Ref: "+sanitizeText(data.JobID))
+
+	// ==========================================
+	// --- PAGE 2: GUEST 2 DETAILS + PHOTO ID ---
+	// ==========================================
+	if hasGuest2 {
 		pdf.AddPage()
 
-		// Header Banner
-		pdf.SetFillColor(30, 58, 138)
-		pdf.Rect(12, 12, 186, 22, "F")
+		// Header Banner - SMART HOME NEXUS : GUEST REGISTER
+		pdf.SetFillColor(15, 23, 42)
+		pdf.Rect(12, 10, 186, 22, "F")
 		pdf.SetTextColor(255, 255, 255)
-		pdf.SetFont("Arial", "B", 15)
-		pdf.SetXY(16, 16)
-		pdf.Cell(120, 7, sanitizeText(data.FormTitle))
-		pdf.SetFont("Arial", "B", 9)
-		pdf.SetXY(140, 16)
-		pdf.Cell(54, 7, "GUEST 2 CHECK-IN CARD")
+		pdf.SetFont("Arial", "B", 13)
+		pdf.SetXY(16, 13)
+		pdf.Cell(130, 6, "SMART HOME NEXUS : GUEST REGISTER")
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetTextColor(148, 163, 184)
+		pdf.SetXY(16, 20)
+		pdf.Cell(90, 4, "https://smarthomenexus.net")
+		pdf.SetXY(16, 25)
+		pdf.Cell(90, 4, "Guest 2 Details & Photo ID Proof")
 
-		pdf.SetFont("Arial", "", 9)
-		pdf.SetXY(16, 24)
-		pdf.Cell(120, 6, "Automated Guest Check-in Record | Guest 2 Registration")
+		pdf.SetTextColor(255, 255, 255)
+		pdf.SetFont("Arial", "B", 8)
+		pdf.SetXY(155, 13)
+		pdf.Cell(40, 5, "PAGE 2 OF 2")
 
-		pdf.SetY(38)
+		// Licenses Row
+		pdf.SetFillColor(241, 245, 249)
+		pdf.SetDrawColor(226, 232, 240)
+		pdf.Rect(12, 34, 186, 10, "DF")
+		pdf.SetTextColor(71, 85, 105)
+		pdf.SetFont("Arial", "", 7.5)
+		pdf.SetXY(16, 36)
+		pdf.Cell(90, 5, "CE 1: <Placeholder>")
+		pdf.SetXY(110, 36)
+		pdf.Cell(84, 5, "CE 2: <Placeholder>")
 
-		// Property & Booking Banner
+		// Property & Booking Info Box
 		pdf.SetFillColor(240, 253, 244)
 		pdf.SetDrawColor(187, 247, 208)
-		pdf.Rect(12, 38, 186, 20, "DF")
+		pdf.Rect(12, 46, 186, 16, "DF")
 		pdf.SetTextColor(22, 101, 52)
-		pdf.SetFont("Arial", "B", 10)
-		pdf.SetXY(16, 41)
-		pdf.Cell(90, 5, "Booked Property: "+sanitizeText(propName))
+		pdf.SetFont("Arial", "B", 9)
+		pdf.SetXY(16, 48)
+		pdf.Cell(90, 4, "Property: "+sanitizeText(propName))
 		pdf.SetTextColor(71, 85, 105)
-		pdf.SetFont("Arial", "", 9)
-		pdf.SetXY(110, 41)
-		pdf.Cell(84, 5, "Primary Guest: "+sanitizeText(data.UserName))
-		pdf.SetXY(16, 49)
-		pdf.Cell(90, 5, fmt.Sprintf("Check-in: %s  |  Check-out: %s", sanitizeText(checkinDate), sanitizeText(checkoutDate)))
-		pdf.SetXY(110, 49)
-		pdf.Cell(84, 5, "Job ID: "+sanitizeText(data.JobID))
+		pdf.SetFont("Arial", "", 8)
+		pdf.SetXY(110, 48)
+		pdf.Cell(84, 4, "Primary Guest: "+sanitizeText(g1Name))
+		pdf.SetXY(16, 55)
+		pdf.Cell(90, 4, fmt.Sprintf("Check-in: %s  |  Check-out: %s", sanitizeText(checkinDate), sanitizeText(checkoutDate)))
 
-		pdf.SetY(64)
-		pdf.SetTextColor(30, 58, 138)
-		pdf.SetFont("Arial", "B", 12)
-		pdf.Cell(186, 6, "GUEST 2 REGISTRATION & ID VERIFICATION CARD")
-		pdf.Ln(8)
+		// Guest 2 Info Grid
+		pdf.SetY(65)
+		pdf.SetTextColor(15, 23, 42)
+		pdf.SetFont("Arial", "B", 10)
+		pdf.Cell(186, 5, "GUEST 2 INFORMATION & CONTACT DETAILS")
+		pdf.Ln(6)
 
-		f.renderInfoBox(pdf, 12, pdf.GetY(), 88, 16, "Guest 2 Full Name", g2Name)
-		f.renderInfoBox(pdf, 104, pdf.GetY(), 94, 16, "Gender", g2Gender)
-		pdf.SetY(pdf.GetY() + 20)
+		currY2 := pdf.GetY()
+		f.renderInfoBox(pdf, 12, currY2, 59, 13, "Guest 2 Full Name", g2Name)
+		f.renderInfoBox(pdf, 75, currY2, 59, 13, "Age", g2Age)
+		f.renderInfoBox(pdf, 138, currY2, 60, 13, "Guest 2 Phone", g2Phone)
 
-		f.renderInfoBox(pdf, 12, pdf.GetY(), 88, 16, "Primary Guest Phone / Contact", phone)
-		f.renderInfoBox(pdf, 104, pdf.GetY(), 94, 16, "Marital / Stay Relationship", marital)
-		pdf.SetY(pdf.GetY() + 22)
+		currY2 += 15
+		f.renderInfoBox(pdf, 12, currY2, 59, 13, "Marital Status", marital)
+		f.renderInfoBox(pdf, 75, currY2, 59, 13, "Purpose of Visit", purpose)
+		f.renderInfoBox(pdf, 138, currY2, 60, 13, "Primary Email", data.UserEmail)
+		pdf.SetY(currY2 + 16)
 
-		// Security & Photo ID notice
-		pdf.SetFillColor(248, 250, 252)
-		pdf.SetDrawColor(226, 232, 240)
-		pdf.Rect(12, pdf.GetY(), 186, 32, "DF")
+		// Embedded Photo ID Image Box for Guest 2
 		pdf.SetTextColor(15, 23, 42)
 		pdf.SetFont("Arial", "B", 9)
-		pdf.SetXY(15, pdf.GetY()+3)
-		pdf.Cell(180, 5, "UPLOADED PHOTO ID VERIFICATION (AADHAR CARD / PASSPORT):")
-		pdf.SetFont("Arial", "", 8)
-		pdf.SetXY(15, pdf.GetY()+8)
-		pdf.MultiCell(180, 4, "Guest 2 identification verification attached to form response. Verifier has confirmed Name, Photo, address & Identification Number legibility in compliance with government guest check-in rules.", "", "L", false)
-		pdf.SetY(pdf.GetY() + 25)
+		pdf.Cell(186, 5, "GUEST 2 UPLOADED PHOTO ID PROOF (AADHAR / PASSPORT)")
+		pdf.Ln(5)
 
-		// Statement of Responsibility
+		imgY2 := pdf.GetY()
+		pdf.SetFillColor(248, 250, 252)
+		pdf.SetDrawColor(226, 232, 240)
+		pdf.Rect(12, imgY2, 186, 118, "DF")
+
+		// Use 2nd image if available, otherwise show placeholder
+		imgPath2 := ""
+		if len(data.ImagePaths) > 1 {
+			imgPath2 = data.ImagePaths[1]
+		}
+
+		if imgPath2 != "" {
+			pdf.ImageOptions(imgPath2, 15, imgY2+3, 180, 112, false, fpdf.ImageOptions{ImageType: ""}, 0, "")
+		} else {
+			pdf.SetTextColor(100, 116, 139)
+			pdf.SetFont("Arial", "I", 10)
+			pdf.SetXY(15, imgY2+52)
+			pdf.Cell(180, 6, "[ No Photo ID image attached for Guest 2 ]")
+		}
+		pdf.SetY(imgY2 + 121)
+
+		// Statement of Responsibility Page 2
 		pdf.SetFillColor(254, 252, 232)
 		pdf.SetDrawColor(254, 240, 138)
-		currY2 := pdf.GetY()
-		pdf.Rect(12, currY2, 186, 20, "DF")
+		stmtY2 := pdf.GetY()
+		pdf.Rect(12, stmtY2, 186, 14, "DF")
 		pdf.SetTextColor(133, 89, 0)
-		pdf.SetFont("Arial", "B", 8)
-		pdf.SetXY(15, currY2+2)
-		pdf.Cell(180, 4, "GUEST 2 COMPLIANCE & UNDERTAKING:")
-		pdf.SetFont("Arial", "", 8)
-		pdf.SetXY(15, currY2+7)
-		pdf.MultiCell(180, 4, "Guest 2 acknowledges adherence to check-in terms, guest policies, and legal verification requirements for the duration of stay at "+sanitizeText(propName)+".", "", "L", false)
+		pdf.SetFont("Arial", "B", 7)
+		pdf.SetXY(15, stmtY2+2)
+		pdf.Cell(180, 3, "GUEST 2 COMPLIANCE & UNDERTAKING:")
+		pdf.SetFont("Arial", "", 7)
+		pdf.SetXY(15, stmtY2+5.5)
+		pdf.MultiCell(180, 3, "Guest 2 acknowledges adherence to check-in terms, guest policies, and legal verification requirements for the duration of stay.", "", "L", false)
 
-		// Signature Section Page 2
-		pdf.SetY(currY2 + 26)
-		f.renderSignatureBlock(pdf, "Guest 2 Signature", data.JobID, "Property Manager Signature")
+		// Digital Signature Notice
+		pdf.SetY(stmtY2 + 16)
+		pdf.SetTextColor(100, 116, 139)
+		pdf.SetFont("Arial", "I", 8)
+		pdf.Cell(186, 4, "Document Digitally Signed. No signature required.")
+
+		// Footer with Job ID
+		pdf.SetY(280)
+		pdf.SetTextColor(148, 163, 184)
+		pdf.SetFont("Arial", "", 7)
+		pdf.Cell(93, 4, "Smart Home Nexus | smarthomenexus.net")
+		pdf.Cell(93, 4, "Job Ref: "+sanitizeText(data.JobID))
 	}
 }
+
+
+func ternaryInt(cond bool, a, b int) int {
+	if cond {
+		return a
+	}
+	return b
+}
+
 
 func (f *Formatter) renderDefaultTablePDF(pdf *fpdf.Fpdf, data TemplateDataContext) {
 	pdf.AddPage()
@@ -642,8 +724,9 @@ type TemplateDataContext struct {
 	JobID         string
 	CreatedAtFormatted string
 	Filename      string
-	Responses     []models.FormQuestionAnswer
-	Map           map[string]string
+	ImagePaths         []string
+	Responses          []models.FormQuestionAnswer
+	Map                map[string]string
 }
 
 func (f *Formatter) buildTemplateData(job *models.Job) TemplateDataContext {
@@ -663,8 +746,82 @@ func (f *Formatter) buildTemplateData(job *models.Job) TemplateDataContext {
 	qMap := make(map[string]string)
 	for _, qa := range job.FormResponses {
 		qMap[strings.TrimSpace(qa.Question)] = qa.Answer
-		// Also create normalized lower case keys
 		qMap[strings.ToLower(strings.TrimSpace(qa.Question))] = qa.Answer
+	}
+
+	var g1ImgPath string
+	var g2ImgPath string
+
+	// Check for file_1_ and file_2_ patterns from multi-file webhooks
+	f1TempMatches, _ := filepath.Glob(filepath.Join("storage/temp", fmt.Sprintf("%s_file_1_*", job.ID)))
+	if len(f1TempMatches) > 0 && isImageFile(f1TempMatches[0]) {
+		g1ImgPath = f1TempMatches[0]
+	}
+	f2TempMatches, _ := filepath.Glob(filepath.Join("storage/temp", fmt.Sprintf("%s_file_2_*", job.ID)))
+	if len(f2TempMatches) > 0 && isImageFile(f2TempMatches[0]) {
+		g2ImgPath = f2TempMatches[0]
+	}
+
+	if g1ImgPath == "" {
+		f1ArchMatches, _ := filepath.Glob(filepath.Join("storage/archive/*", fmt.Sprintf("%s_file_1_*", job.ID)))
+		if len(f1ArchMatches) > 0 && isImageFile(f1ArchMatches[0]) {
+			g1ImgPath = f1ArchMatches[0]
+		}
+	}
+	if g2ImgPath == "" {
+		f2ArchMatches, _ := filepath.Glob(filepath.Join("storage/archive/*", fmt.Sprintf("%s_file_2_*", job.ID)))
+		if len(f2ArchMatches) > 0 && isImageFile(f2ArchMatches[0]) {
+			g2ImgPath = f2ArchMatches[0]
+		}
+	}
+
+	// Fallback to general image matching if file_1_/file_2_ naming is not present
+	if g1ImgPath == "" {
+		var allImgs []string
+		if job.Filename != "" {
+			tPath := filepath.Join("storage/temp", fmt.Sprintf("%s_%s", job.ID, job.Filename))
+			if isImageFile(tPath) {
+				allImgs = append(allImgs, tPath)
+			}
+			archMatches, _ := filepath.Glob(filepath.Join("storage/archive/*", fmt.Sprintf("%s_%s", job.ID, job.Filename)))
+			for _, m := range archMatches {
+				if isImageFile(m) && !sliceContains(allImgs, m) {
+					allImgs = append(allImgs, m)
+					break
+				}
+			}
+		}
+		jobTempMatches, _ := filepath.Glob(filepath.Join("storage/temp", fmt.Sprintf("%s_*", job.ID)))
+		for _, m := range jobTempMatches {
+			if isImageFile(m) && !sliceContains(allImgs, m) {
+				allImgs = append(allImgs, m)
+			}
+		}
+		archJobMatches, _ := filepath.Glob(filepath.Join("storage/archive/*", fmt.Sprintf("%s_*", job.ID)))
+		for _, m := range archJobMatches {
+			if isImageFile(m) && !sliceContains(allImgs, m) {
+				allImgs = append(allImgs, m)
+			}
+		}
+
+		if len(allImgs) > 0 {
+			g1ImgPath = allImgs[0]
+		}
+		if len(allImgs) > 1 {
+			fi1, err1 := os.Stat(allImgs[0])
+			fi2, err2 := os.Stat(allImgs[1])
+			if err1 == nil && err2 == nil && (filepath.Base(allImgs[0]) != filepath.Base(allImgs[1]) || fi1.Size() != fi2.Size()) {
+				g2ImgPath = allImgs[1]
+			}
+		}
+	}
+
+	var imgPaths []string
+	if g1ImgPath != "" {
+		imgPaths = append(imgPaths, g1ImgPath)
+	}
+	if g2ImgPath != "" {
+		imgPaths = append(imgPaths, g2ImgPath)
 	}
 
 	return TemplateDataContext{
@@ -674,10 +831,30 @@ func (f *Formatter) buildTemplateData(job *models.Job) TemplateDataContext {
 		JobID:              job.ID,
 		CreatedAtFormatted: job.CreatedAt.Format("02 Jan 2006, 15:04 MST"),
 		Filename:           job.Filename,
+		ImagePaths:         imgPaths,
 		Responses:          job.FormResponses,
 		Map:                qMap,
 	}
 }
+
+
+func isImageFile(filePath string) bool {
+	if fi, err := os.Stat(filePath); err == nil && !fi.IsDir() && fi.Size() > 0 {
+		ext := strings.ToLower(filepath.Ext(filePath))
+		return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp"
+	}
+	return false
+}
+
+func sliceContains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 
 func (f *Formatter) hasPropertyFields(job *models.Job) bool {
 	for _, qa := range job.FormResponses {

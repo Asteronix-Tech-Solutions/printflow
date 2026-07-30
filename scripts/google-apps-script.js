@@ -1,26 +1,10 @@
 /**
- * ==============================================================================
  * PintFlow - Automatic Google Form Printing System
- * Production Google Apps Script Trigger Script with Form Formatting
- * ==============================================================================
- *
- * HOW TO INSTALL:
- * 1. Open your Google Form.
- * 2. Click the three dots (⋮) in top right -> Script editor.
- * 3. Paste this code into Code.gs.
- * 4. Update WEBHOOK_URL and WEBHOOK_SECRET below with your server credentials.
- * 5. Click Triggers (alarm clock icon on left sidebar) -> Add Trigger:
- *    - Function: onFormSubmit
- *    - Deployment: Head
- *    - Event source: From form
- *    - Event type: On form submit
- * 6. Save and authorize permissions.
  */
 
 // CONFIGURATION
-var WEBHOOK_URL = "https://your-pintflow-domain.com/api/v1/webhook"; // Or http://YOUR_SERVER_IP:8080/api/v1/webhook
-var WEBHOOK_SECRET = "pintflow_secret_token_123";
-var DEFAULT_PRINTER = "Brother_DCP_T430W";
+var WEBHOOK_URL = "https://localhost:8080/api/v1/webhook";
+var WEBHOOK_SECRET = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 function onFormSubmit(e) {
   if (!e) {
@@ -36,8 +20,9 @@ function onFormSubmit(e) {
 
   var respondentEmail = formResponse.getRespondentEmail() || "";
   var respondentName = "";
-  var uploadedFileIds = [];
+  var uploadedFiles = [];  // Array of {file_name, file_data, question_title}
   var formQA = [];
+  var primaryFilename = "form_response_summary.pdf";
 
   for (var i = 0; i < itemResponses.length; i++) {
     var itemResponse = itemResponses[i];
@@ -51,23 +36,43 @@ function onFormSubmit(e) {
       answerString = String(rawAnswer || "");
     }
 
-    // Capture Respondent Name if asked in form
     var lowerTitle = questionTitle.toLowerCase();
     if (lowerTitle.indexOf("name") !== -1 || lowerTitle.indexOf("full name") !== -1) {
       if (!respondentName) respondentName = answerString;
     }
 
-    // Capture File Upload Responses
     if (itemResponse.getItem().getType() === FormApp.ItemType.FILE_UPLOAD) {
-      if (Array.isArray(rawAnswer)) {
-        for (var j = 0; j < rawAnswer.length; j++) {
-          uploadedFileIds.push(rawAnswer[j]);
+      var fileIds = Array.isArray(rawAnswer) ? rawAnswer : [rawAnswer];
+      for (var j = 0; j < fileIds.length; j++) {
+        var fileId = cleanDriveFileId(fileIds[j]);
+        var filename = "Form_Upload_" + (uploadedFiles.length + 1) + ".pdf";
+        var fileDataBase64 = "";
+
+        try {
+          var file = DriveApp.getFileById(fileId);
+          if (file) {
+            filename = file.getName();
+            var fileBlob = file.getBlob();
+            if (fileBlob.getBytes().length < 15 * 1024 * 1024) {
+              fileDataBase64 = "data:" + fileBlob.getContentType() + ";base64," + Utilities.base64Encode(fileBlob.getBytes());
+            }
+          }
+        } catch (err) {
+          Logger.log("Could not fetch file blob for fileId: " + fileId + ": " + err);
         }
-      } else if (typeof rawAnswer === "string") {
-        uploadedFileIds.push(rawAnswer);
+
+        uploadedFiles.push({
+          file_name: filename,
+          file_data: fileDataBase64,
+          question_title: questionTitle
+        });
+
+        // Use the first uploaded file as the primary filename
+        if (uploadedFiles.length === 1) {
+          primaryFilename = filename;
+        }
       }
     } else {
-      // Add standard Q&A to form summary sheet
       formQA.push({
         question: questionTitle,
         answer: answerString
@@ -75,53 +80,33 @@ function onFormSubmit(e) {
     }
   }
 
-  // If attachments exist, queue each attached file with the form summary attached!
-  if (uploadedFileIds.length > 0) {
-    for (var k = 0; k < uploadedFileIds.length; k++) {
-      var fileId = uploadedFileIds[k];
-      var filename = "Form_Upload_" + (k + 1) + ".pdf";
+  // Send ONE webhook per form submission with ALL files bundled
+  var payload = {
+    secret: WEBHOOK_SECRET,
+    response_id: formResponse.getId(),
+    user_name: respondentName || respondentEmail || "Form Respondent",
+    user_email: respondentEmail,
+    file_id: "",
+    filename: primaryFilename,
+    copies: 1,
+    form_title: formTitle,
+    form_responses: formQA
+  };
 
-      try {
-        var file = DriveApp.getFileById(fileId);
-        if (file) {
-          filename = file.getName();
-        }
-      } catch (err) {
-        Logger.log("Could not fetch file metadata for fileId: " + fileId + ": " + err);
-      }
-
-      var payload = {
-        secret: WEBHOOK_SECRET,
-        response_id: formResponse.getId(),
-        user_name: respondentName || respondentEmail || "Form Respondent",
-        user_email: respondentEmail,
-        file_id: fileId,
-        filename: filename,
-        printer: DEFAULT_PRINTER,
-        copies: 1,
-        form_title: formTitle,
-        form_responses: formQA
-      };
-
-      sendWebhookPayload(payload);
+  // Attach file data - first file goes in file_data, all files in files_data array
+  if (uploadedFiles.length > 0) {
+    payload.file_data = uploadedFiles[0].file_data;
+    payload.files_data = [];
+    for (var f = 0; f < uploadedFiles.length; f++) {
+      payload.files_data.push({
+        file_name: uploadedFiles[f].file_name,
+        file_data: uploadedFiles[f].file_data,
+        question_title: uploadedFiles[f].question_title
+      });
     }
-  } else {
-    // If no attachments, queue the formatted Google Form response sheet for printing!
-    var payloadOnlyForm = {
-      secret: WEBHOOK_SECRET,
-      response_id: formResponse.getId(),
-      user_name: respondentName || respondentEmail || "Form Respondent",
-      user_email: respondentEmail,
-      file_id: "",
-      filename: "form_response_summary.pdf",
-      printer: DEFAULT_PRINTER,
-      copies: 1,
-      form_title: formTitle,
-      form_responses: formQA
-    };
-
-    sendWebhookPayload(payloadOnlyForm);
   }
+
+  sendWebhookPayload(payload);
 }
 
 function sendWebhookPayload(payload) {
@@ -138,4 +123,49 @@ function sendWebhookPayload(payload) {
   } catch (err) {
     Logger.log("Error posting to PintFlow webhook: " + err);
   }
+}
+
+/**
+ * MANUAL REPLAY HELPERS:
+ * Select 'replayLastSubmission' in top dropdown and click Run to re-send the most recent submission.
+ */
+function replayLastSubmission() {
+  replayRecentResponses(1);
+}
+
+function replayRecentResponses(count) {
+  var targetCount = count || 1;
+  var form = FormApp.getActiveForm();
+  var responses = form.getResponses();
+  if (!responses || responses.length === 0) {
+    Logger.log("No past form responses found.");
+    return;
+  }
+
+  var startIndex = Math.max(0, responses.length - targetCount);
+  Logger.log("Replaying last " + (responses.length - startIndex) + " submission(s)...");
+
+  for (var i = startIndex; i < responses.length; i++) {
+    var response = responses[i];
+    Logger.log("Replaying submission #" + (i + 1) + " (ID: " + response.getId() + ")...");
+    onFormSubmit({ response: response });
+  }
+}
+
+function cleanDriveFileId(input) {
+  if (!input) return "";
+  var str = String(input).trim();
+  if (str.indexOf("/d/") !== -1) {
+    var parts = str.split("/d/");
+    if (parts.length > 1) {
+      return parts[1].split("/")[0].split("?")[0];
+    }
+  }
+  if (str.indexOf("id=") !== -1) {
+    var parts = str.split("id=");
+    if (parts.length > 1) {
+      return parts[1].split("&")[0];
+    }
+  }
+  return str;
 }
