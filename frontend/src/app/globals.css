@@ -2,38 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme Color Tokens for PrintFlow */
 :root {
-  /* Default Slate Light fallback theme tokens */
-  --bg-main: #f8fafc;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-sidebar: rgba(241, 245, 249, 0.95);
-  --border-card: rgba(203, 213, 225, 0.8);
+  /* Slate Light Theme Tokens */
+  --bg-main: #f1f5f9;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --border-color: #e2e8f0;
   --text-main: #0f172a;
-  --text-muted: #64748b;
-  --primary: #4f46e5;
-  --primary-glow: rgba(79, 70, 229, 0.15);
-  --scrollbar-track: rgba(226, 232, 240, 0.5);
-  --scrollbar-thumb: rgba(148, 163, 184, 0.4);
+  --text-muted: #475569;
+  --text-subtle: #94a3b8;
+  --input-bg: #f8fafc;
+  --input-border: #cbd5e1;
+  --btn-secondary-bg: #f1f5f9;
+  --btn-secondary-hover: #e2e8f0;
+  --btn-secondary-text: #334155;
+  --btn-secondary-border: #cbd5e1;
+  --tab-bg: #f1f5f9;
+  --m-blue-light: #0066b1;
+  --m-blue-dark: #1c69d4;
+  --m-red: #e22718;
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .dark {
-  /* Slate Dark Theme tokens */
-  --bg-main: #090d16;
-  --bg-card: rgba(15, 23, 42, 0.75);
-  --bg-sidebar: rgba(15, 23, 42, 0.95);
-  --border-card: rgba(255, 255, 255, 0.08);
+  /* BMW M Slate Dark Theme Tokens */
+  --bg-main: #050811;
+  --bg-sidebar: #090d16;
+  --bg-card: #0e1424;
+  --border-color: #1e293b;
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --primary: #6366f1;
-  --primary-glow: rgba(99, 102, 241, 0.25);
-  --scrollbar-track: rgba(15, 23, 42, 0.5);
-  --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --text-subtle: #64748b;
+  --input-bg: #0a0f1a;
+  --input-border: #1e293b;
+  --btn-secondary-bg: #111827;
+  --btn-secondary-hover: #1e293b;
+  --btn-secondary-text: #cbd5e1;
+  --btn-secondary-border: #1e293b;
+  --tab-bg: #0a0f1a;
+  --shadow-panel: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
 }
 
 body {
   background-color: var(--bg-main);
   color: var(--text-main);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -41,32 +55,89 @@ body {
   transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
 }
 
-/* Glassmorphism Cards & Panels */
-.glass-panel {
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-card);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.25s ease;
+/* BMW M Tricolor Brand Stripe */
+.m-stripe-line {
+  height: 3px;
+  background: linear-gradient(90deg, var(--m-blue-light) 0%, var(--m-blue-dark) 50%, var(--m-red) 100%);
+  width: 100%;
 }
 
-.dark .glass-panel {
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+.m-stripe-accent {
+  border-left: 4px solid var(--m-blue-dark);
+}
+
+/* Glass & Surface Panels */
+.glass-panel {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-panel);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass-modal {
-  background: var(--bg-card);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border-card);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .dark .glass-modal {
-  background: rgba(15, 23, 42, 0.95);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* Dynamic Input Elements */
+.theme-input {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-main);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.theme-input:focus {
+  border-color: #6366f1;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+/* Secondary Button (Settings, Close, etc.) */
+.btn-secondary {
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--btn-secondary-hover);
+}
+
+/* Tab Container Background */
+.tab-container {
+  background-color: var(--tab-bg);
+  border: 1px solid var(--border-color);
+}
+
+/* Modal Internal Sections */
+.modal-section {
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+}
+
+/* Terminal Console UI Styling */
+.terminal-window {
+  background-color: #03060d;
+  color: #00ff66;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  border: 1px solid #1e293b;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 15px 35px rgba(0, 0, 0, 0.7);
+}
+
+.terminal-header {
+  background-color: #0b0f19;
+  border-bottom: 1px solid #1e293b;
 }
 
 /* Custom Scrollbars */
@@ -75,17 +146,17 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
+  background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: 4px;
+  background: var(--border-color);
+  border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.4);
+  background: #6366f1;
 }
 
-/* Pulse animation for active printing */
+/* Pulse animation for live status */
 @keyframes pulse-ring {
   0% { transform: scale(0.95); opacity: 0.8; }
   50% { transform: scale(1.05); opacity: 0.4; }

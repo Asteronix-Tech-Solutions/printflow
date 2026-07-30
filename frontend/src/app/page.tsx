@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Sidebar } from '../components/Sidebar';
+import { MainLayout } from '../components/MainLayout';
 import { Header } from '../components/Header';
 import { MetricCards } from '../components/MetricCards';
 import { JobList } from '../components/JobList';
-import { QueueJobModal } from '../components/QueueJobModal';
-import { PrinterConfigModal } from '../components/PrinterConfigModal';
 import {
   fetchHealth,
   fetchJobs,
@@ -21,8 +19,6 @@ export default function DashboardPage() {
   const [health, setHealth] = useState<HealthResponse | undefined>();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeFilter, setActiveFilter] = useState('all');
-  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
-  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
 
@@ -31,7 +27,7 @@ export default function DashboardPage() {
     try {
       const [healthData, jobsData] = await Promise.allSettled([
         fetchHealth(),
-        fetchJobs(activeFilter, 100), // Fetch up to 100 recent jobs for frontend client pagination
+        fetchJobs(activeFilter, 100),
       ]);
 
       if (healthData.status === 'fulfilled') setHealth(healthData.value);
@@ -96,50 +92,31 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        printer={health?.printer}
-        onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
-        onOpenQueueModal={() => setIsQueueModalOpen(true)}
-      />
+    <MainLayout printer={health?.printer} onRefreshData={loadData}>
+      {({ setIsQueueModalOpen, setIsPrinterModalOpen }) => (
+        <>
+          <Header
+            printer={health?.printer}
+            sseConnected={sseConnected}
+            onOpenQueueModal={() => setIsQueueModalOpen(true)}
+            onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
+            onRefresh={loadData}
+            isRefreshing={isRefreshing}
+            title="DOCUMENT PRINTING DASHBOARD"
+            subtitle="Real-time automated print queue & Form submission status"
+          />
 
-      {/* Main Content Area */}
-      <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-        <Header
-          printer={health?.printer}
-          sseConnected={sseConnected}
-          onOpenQueueModal={() => setIsQueueModalOpen(true)}
-          onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
-          onRefresh={loadData}
-          isRefreshing={isRefreshing}
-          title="Document Printing Dashboard"
-          subtitle="Real-time automated print queue & Form submission status"
-        />
+          <MetricCards health={health} />
 
-        <MetricCards health={health} />
-
-        <JobList
-          jobs={jobs}
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          onRetry={handleRetryJob}
-          onCancel={handleCancelJob}
-        />
-      </main>
-
-      {/* Modals */}
-      <QueueJobModal
-        isOpen={isQueueModalOpen}
-        onClose={() => setIsQueueModalOpen(false)}
-        onJobQueued={loadData}
-      />
-
-      <PrinterConfigModal
-        isOpen={isPrinterModalOpen}
-        onClose={() => setIsPrinterModalOpen(false)}
-        onConfigSaved={loadData}
-      />
-    </div>
+          <JobList
+            jobs={jobs}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            onRetry={handleRetryJob}
+            onCancel={handleCancelJob}
+          />
+        </>
+      )}
+    </MainLayout>
   );
 }

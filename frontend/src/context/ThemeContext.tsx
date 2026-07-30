@@ -17,33 +17,42 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Read stored theme preference or default to dark (Slate Dark)
-    const storedTheme = localStorage.getItem('printflow_theme') as Theme | null;
-    if (storedTheme === 'light' || storedTheme === 'dark') {
-      setThemeState(storedTheme);
-    } else {
-      setThemeState('dark');
-    }
     setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
+    const storedTheme = localStorage.getItem('printflow_theme') as Theme | null;
+    const initial = storedTheme === 'light' ? 'light' : 'dark';
+    
+    setThemeState(initial);
     const root = document.documentElement;
-    if (theme === 'dark') {
+    if (initial === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('printflow_theme', theme);
-  }, [theme, mounted]);
+  }, []);
 
   const toggleTheme = () => {
-    setThemeState(prev => (prev === 'dark' ? 'light' : 'dark'));
+    setThemeState((prev) => {
+      const nextTheme = prev === 'dark' ? 'light' : 'dark';
+      const root = document.documentElement;
+      if (nextTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+      localStorage.setItem('printflow_theme', nextTheme);
+      return nextTheme;
+    });
   };
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
+    const root = document.documentElement;
+    if (newTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('printflow_theme', newTheme);
   };
 
   return (

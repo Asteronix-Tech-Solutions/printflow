@@ -14,35 +14,35 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ health }) => {
 
   const metrics = [
     {
-      title: 'Waiting to Print',
+      title: 'WAITING TO PRINT',
       value: health?.pending_jobs ?? 0,
-      subtext: 'In print queue',
+      subtext: 'IN PRINT QUEUE',
       icon: Clock,
       bgColor: 'bg-amber-500/10',
       borderColor: 'border-amber-500/30',
       textColor: 'text-amber-500',
     },
     {
-      title: 'Successfully Printed',
+      title: 'SUCCESSFULLY PRINTED',
       value: health?.completed_jobs ?? 0,
-      subtext: 'Printed documents',
+      subtext: 'PRINTED DOCUMENTS',
       icon: CheckCircle2,
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/30',
       textColor: 'text-emerald-500',
     },
     {
-      title: 'Needs Attention',
+      title: 'NEEDS ATTENTION',
       value: health?.failed_jobs ?? 0,
-      subtext: 'Failed attempts',
+      subtext: 'FAILED ATTEMPTS',
       icon: AlertCircle,
       bgColor: 'bg-rose-500/10',
       borderColor: 'border-rose-500/30',
       textColor: 'text-rose-500',
     },
     {
-      title: 'Active Printer',
-      value: isOnline ? 'Ready & Online' : 'Printer Offline',
+      title: 'ACTIVE PRINTER',
+      value: isOnline ? 'ONLINE & READY' : 'OFFLINE',
       subtext: printerName,
       icon: Printer,
       bgColor: isOnline ? 'bg-indigo-500/10' : 'bg-amber-500/10',
@@ -58,18 +58,18 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ health }) => {
         return (
           <div
             key={idx}
-            className="glass-panel p-4 flex items-center justify-between border border-slate-200 dark:border-slate-800/80 transition-all hover:-translate-y-0.5 hover:shadow-xl group"
+            className="glass-panel p-4 flex items-center justify-between rounded-none transition-all hover:-translate-y-0.5 group"
           >
             <div>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-0.5">{m.title}</p>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate max-w-[160px]">
+              <p className="text-[11px] font-black opacity-70 mb-0.5 tracking-wider uppercase">{m.title}</p>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight truncate max-w-[160px] uppercase">
                 {m.value}
               </h3>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 font-semibold truncate max-w-[160px]">
+              <p className="text-[10px] opacity-60 mt-0.5 font-bold truncate max-w-[160px] tracking-widest uppercase">
                 {m.subtext}
               </p>
             </div>
-            <div className={`p-3 rounded-2xl border ${m.bgColor} ${m.borderColor} ${m.textColor} shrink-0 group-hover:scale-110 transition-transform`}>
+            <div className={`p-3 rounded-none border ${m.bgColor} ${m.borderColor} ${m.textColor} shrink-0 group-hover:scale-105 transition-transform`}>
               <IconComponent className="w-5 h-5" />
             </div>
           </div>
