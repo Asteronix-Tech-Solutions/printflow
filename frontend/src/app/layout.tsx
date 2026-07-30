@@ -1,8 +1,9 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { ThemeProvider } from '../context/ThemeContext';
 
 export const metadata: Metadata = {
-  title: 'PintFlow | Automatic Google Form Printing System',
+  title: 'PrintFlow | Automatic Google Form Printing Dashboard',
   description: 'Super lightweight visual dashboard and automated print engine for Google Form responses',
 };
 
@@ -12,9 +13,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="antialiased selection:bg-indigo-500 selection:text-white">
-        {children}
+    <html lang="en" className="dark">
+      <body className="antialiased selection:bg-indigo-500 selection:text-white bg-slate-950 text-slate-100 min-h-screen">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

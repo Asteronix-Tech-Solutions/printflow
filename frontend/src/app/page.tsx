@@ -1,28 +1,25 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { MetricCards } from '../components/MetricCards';
 import { JobList } from '../components/JobList';
 import { QueueJobModal } from '../components/QueueJobModal';
 import { PrinterConfigModal } from '../components/PrinterConfigModal';
-import { LogViewer } from '../components/LogViewer';
 import {
   fetchHealth,
   fetchJobs,
-  fetchLogs,
   retryJob,
   cancelJob,
   subscribeToEvents,
   HealthResponse,
   Job,
-  LogEntry,
 } from '../lib/api';
 
 export default function DashboardPage() {
   const [health, setHealth] = useState<HealthResponse | undefined>();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [activeFilter, setActiveFilter] = useState('all');
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
@@ -32,23 +29,21 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const [healthData, jobsData, logsData] = await Promise.allSettled([
+      const [healthData, jobsData] = await Promise.allSettled([
         fetchHealth(),
-        fetchJobs(activeFilter),
-        fetchLogs(50),
+        fetchJobs(activeFilter, 100), // Fetch up to 100 recent jobs for frontend client pagination
       ]);
 
       if (healthData.status === 'fulfilled') setHealth(healthData.value);
       if (jobsData.status === 'fulfilled') setJobs(jobsData.value.jobs || []);
-      if (logsData.status === 'fulfilled') setLogs(logsData.value.logs || []);
     } catch (err) {
-      console.error('Error refreshing PintFlow dashboard:', err);
+      console.error('Error refreshing PrintFlow dashboard:', err);
     } finally {
       setIsRefreshing(false);
     }
   }, [activeFilter]);
 
-  // Initial load + Real-time SSE event listener (replacing continuous HTTP polling)
+  // Initial load + Real-time SSE event listener
   useEffect(() => {
     loadData();
 
@@ -58,15 +53,18 @@ export default function DashboardPage() {
       } else if (evtType === 'job_updated') {
         setSseConnected(true);
         if (data && data.id && data.status) {
-          setJobs(prev => prev.map(j => (j.id === data.id ? { ...j, status: data.status, error_message: data.error_message } : j)));
+          setJobs(prev =>
+            prev.map(j =>
+              j.id === data.id
+                ? { ...j, status: data.status, error_message: data.error_message }
+                : j
+            )
+          );
         }
         loadData();
       } else if (evtType === 'health_updated') {
         setSseConnected(true);
         fetchHealth().then(setHealth).catch(() => {});
-      } else if (evtType === 'log_added' && data) {
-        setSseConnected(true);
-        setLogs(prev => [data, ...prev].slice(0, 50));
       }
     });
 
@@ -98,28 +96,39 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      <Header
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex">
+      {/* Sidebar Navigation */}
+      <Sidebar
         printer={health?.printer}
-        sseConnected={sseConnected}
-        onOpenQueueModal={() => setIsQueueModalOpen(true)}
         onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
-        onRefresh={loadData}
-        isRefreshing={isRefreshing}
+        onOpenQueueModal={() => setIsQueueModalOpen(true)}
       />
 
-      <MetricCards health={health} />
+      {/* Main Content Area */}
+      <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <Header
+          printer={health?.printer}
+          sseConnected={sseConnected}
+          onOpenQueueModal={() => setIsQueueModalOpen(true)}
+          onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
+          onRefresh={loadData}
+          isRefreshing={isRefreshing}
+          title="Document Printing Dashboard"
+          subtitle="Real-time automated print queue & Form submission status"
+        />
 
-      <JobList
-        jobs={jobs}
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        onRetry={handleRetryJob}
-        onCancel={handleCancelJob}
-      />
+        <MetricCards health={health} />
 
-      <LogViewer logs={logs} />
+        <JobList
+          jobs={jobs}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          onRetry={handleRetryJob}
+          onCancel={handleCancelJob}
+        />
+      </main>
 
+      {/* Modals */}
       <QueueJobModal
         isOpen={isQueueModalOpen}
         onClose={() => setIsQueueModalOpen(false)}

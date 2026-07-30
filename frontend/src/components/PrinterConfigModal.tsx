@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Printer, Wifi, CheckCircle2, AlertCircle, Settings, RefreshCw, HelpCircle } from 'lucide-react';
+import { X, Printer, Wifi, CheckCircle2, AlertCircle, Settings } from 'lucide-react';
 import { updatePrinterConfig, fetchPrinterConfig, PrinterStatus } from '../lib/api';
 
 interface PrinterConfigModalProps {
@@ -71,160 +71,162 @@ export const PrinterConfigModal: React.FC<PrinterConfigModalProps> = ({ isOpen, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="glass-modal w-full max-w-lg rounded-2xl p-6 relative border border-white/10 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="glass-modal w-full max-w-lg rounded-2xl p-6 relative border border-slate-200 dark:border-slate-800 shadow-2xl text-slate-900 dark:text-white">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-white rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+          className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-all"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Header */}
         <div className="flex items-center gap-3.5 mb-5">
-          <div className="p-3 bg-indigo-600/20 text-indigo-400 rounded-2xl border border-indigo-500/30">
+          <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-2xl border border-indigo-500/20">
             <Printer className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">Printer Setup & Connection</h2>
-            <p className="text-xs text-gray-400">Configure your target Wi-Fi or network printer</p>
+            <h2 className="text-lg font-extrabold tracking-tight">Printer Setup & Connection</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Configure your target Wi-Fi or network printer</p>
           </div>
         </div>
 
         {/* Live Status Banner */}
         {testResult && (
           <div
-            className={`p-3.5 rounded-xl border text-xs font-medium mb-5 flex items-center justify-between shadow-sm ${
+            className={`p-3.5 rounded-xl border text-xs font-semibold mb-5 flex items-center justify-between shadow-sm ${
               testResult.is_online
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-300'
             }`}
           >
             <div className="flex items-center gap-2.5">
               {testResult.is_online ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
               )}
               <div>
-                <p className="font-bold text-xs">{testResult.name} — {testResult.is_online ? 'Ready to Print' : 'Needs Connection Check'}</p>
-                <p className="text-[11px] opacity-85 mt-0.5">{testResult.status_message}</p>
+                <p className="font-bold">
+                  {testResult.name} - {testResult.is_online ? 'Connected & Ready' : 'Printer Offline'}
+                </p>
+                <p className="text-[11px] opacity-80">{testResult.status_message}</p>
               </div>
             </div>
-            <span className="text-[10px] font-semibold uppercase px-2 py-1 rounded-lg bg-black/40 border border-white/10 text-gray-300 shrink-0">
-              {testResult.is_online ? 'Online' : 'Offline'}
+            <span className="text-[10px] opacity-70 font-mono">
+              {testResult.address}
             </span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="p-3.5 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-          {success && (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 text-xs font-medium">
-              {success}
-            </div>
-          )}
+        {success && (
+          <div className="p-3.5 mb-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{success}</span>
+          </div>
+        )}
 
-          {/* Printer Name */}
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs font-semibold">
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Printer Display Name</label>
+            <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">
+              Printer Name / Queue Identifier
+            </label>
             <input
               type="text"
-              placeholder="e.g. Brother_DCP_T430W"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-medium"
+              className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
               required
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Connection Type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Connection Method</label>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">
+                Driver / Protocol
+              </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+                className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
               >
-                <option value="cups">CUPS System Driver (Recommended)</option>
-                <option value="ipp font-mono">Direct Wi-Fi / IPP Network</option>
-                <option value="mock">Simulation Mode (Testing)</option>
+                <option value="cups">CUPS Print System</option>
+                <option value="ipp">IPP (Internet Printing Protocol)</option>
+                <option value="lpd">LPD / Line Printer Daemon</option>
+                <option value="raw">Raw Socket (Port 9100)</option>
               </select>
             </div>
 
-            {/* Printer IP Address */}
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Printer IP Address</label>
-              <input
-                type="text"
-                placeholder="e.g. 192.168.1.19"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 font-mono"
-                required
-              />
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">
+                IP Address / Host
+              </label>
+              <div className="relative">
+                <Wifi className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold font-mono"
+                  placeholder="192.168.1.19"
+                  required
+                />
+              </div>
             </div>
           </div>
 
-          {/* Paper Size & Default Copies */}
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Default Paper Size</label>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">
+                Paper Size
+              </label>
               <select
                 value={paperSize}
                 onChange={(e) => setPaperSize(e.target.value)}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+                className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
               >
-                <option value="A4">A4 (Standard Paper)</option>
-                <option value="Letter">US Letter</option>
-                <option value="Legal">US Legal</option>
+                <option value="A4">A4 (210 x 297 mm)</option>
+                <option value="Letter">Letter (8.5 x 11 in)</option>
+                <option value="Legal">Legal (8.5 x 14 in)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Number of Copies</label>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1.5">
+                Default Copies
+              </label>
               <input
                 type="number"
-                min="1"
-                max="10"
+                min={1}
+                max={10}
                 value={copies}
                 onChange={(e) => setCopies(parseInt(e.target.value) || 1)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+                className="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
               />
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-3 flex justify-end gap-3 border-t border-white/10 mt-5">
+          <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs font-semibold transition-all"
+              className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl font-bold text-xs transition-all"
             >
-              Cancel
+              Close
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 active:scale-95"
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-lg transition-all active:scale-95 disabled:opacity-50"
             >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Connecting Printer...</span>
-                </>
-              ) : (
-                <>
-                  <Settings className="w-3.5 h-3.5" />
-                  <span>Save Printer Settings</span>
-                </>
-              )}
+              {loading ? 'Testing Connection...' : 'Save & Test Connection'}
             </button>
           </div>
         </form>
@@ -232,4 +234,3 @@ export const PrinterConfigModal: React.FC<PrinterConfigModalProps> = ({ isOpen, 
     </div>
   );
 };
-
