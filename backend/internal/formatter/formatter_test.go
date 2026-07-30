@@ -79,3 +79,52 @@ func TestGeneratePDFBytesAllTemplates(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateFourGuestsPDF(t *testing.T) {
+	fmtEngine := NewFormatter()
+	job := &models.Job{
+		ID:        "job_test_4_guests",
+		FormTitle: "Hotel Villa 4-Guest Check-in Form",
+		UserName:  "Guest 1 Name",
+		UserEmail: "guest1@example.com",
+		CreatedAt: time.Now(),
+		TemplateID: "property_checkin",
+		FormResponses: []models.FormQuestionAnswer{
+			{Question: "Which Property Have you Booked?", Answer: "Ocean Palms Resort"},
+			{Question: "Phone", Answer: "+1 555-999-0000"},
+			{Question: "Check-in Date", Answer: "2026-08-10"},
+			{Question: "Check-out Date", Answer: "2026-08-15"},
+			{Question: "Guest Selection", Answer: "4 Guests"},
+			{Question: "Name of Guest 1", Answer: "Alice Primary"},
+			{Question: "Age of Guest 1", Answer: "30"},
+			{Question: "Guest 1 Gender", Answer: "Female"},
+			{Question: "Name of Guest 2", Answer: "Bob Secondary"},
+			{Question: "Age of Guest 2", Answer: "32"},
+			{Question: "Guest 2 Gender", Answer: "Male"},
+			{Question: "Name of Guest 3", Answer: "Charlie Guest"},
+			{Question: "Age of Guest 3", Answer: "28"},
+			{Question: "Guest 3 Gender", Answer: "Male"},
+			{Question: "Name of Guest 4", Answer: "Diana Guest"},
+			{Question: "Age of Guest 4", Answer: "29"},
+			{Question: "Guest 4 Gender", Answer: "Female"},
+		},
+	}
+
+	pdfBytes, err := fmtEngine.GeneratePDFBytes(job, "property_checkin")
+	if err != nil {
+		t.Fatalf("GeneratePDFBytes failed for 4 guests: %v", err)
+	}
+
+	if len(pdfBytes) < 5000 {
+		t.Fatalf("Generated PDF for 4 guests is too small (%d bytes), expected multi-page output", len(pdfBytes))
+	}
+
+	// Verify extracted guests context
+	data := fmtEngine.buildTemplateData(job)
+	if len(data.Guests) != 4 {
+		t.Fatalf("Expected 4 extracted guests, got %d", len(data.Guests))
+	}
+	if data.Guests[0].Name != "Alice Primary" || data.Guests[3].Name != "Diana Guest" {
+		t.Fatalf("Guest names misaligned: %#v", data.Guests)
+	}
+}
