@@ -53,6 +53,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}"
       NEXT_PUBLIC_API_KEY: "${NEXT_PUBLIC_API_KEY:-${API_KEY:-}}"
+      API_KEY: "${API_KEY:-}"
+      INTERNAL_BACKEND_URL: "http://pintflow_backend:8080/api/v1"
     depends_on:
       - backend
 

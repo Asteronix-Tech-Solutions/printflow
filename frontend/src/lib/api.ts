@@ -1,10 +1,18 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+export const API_BASE_URL = typeof window !== 'undefined'
+  ? '/api/v1'
+  : (process.env.INTERNAL_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://pintflow_backend:8080/api/v1');
+
 export const API_KEY = process.env.NEXT_PUBLIC_API_KEY || process.env.API_KEY || '';
 
 function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
   const headers: Record<string, string> = { ...extraHeaders };
-  if (API_KEY) {
-    headers['X-API-Key'] = API_KEY;
+  let key = API_KEY;
+  if (typeof window !== 'undefined') {
+    const localKey = localStorage.getItem('pintflow_api_key');
+    if (localKey) key = localKey;
+  }
+  if (key) {
+    headers['X-API-Key'] = key;
   }
   return headers;
 }
