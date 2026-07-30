@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Clock, CheckCircle, AlertCircle, Database } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Printer } from 'lucide-react';
 import { HealthResponse } from '../lib/api';
 
 interface MetricCardsProps {
@@ -9,42 +9,45 @@ interface MetricCardsProps {
 }
 
 export const MetricCards: React.FC<MetricCardsProps> = ({ health }) => {
+  const isOnline = health?.printer?.is_online ?? false;
+  const printerName = health?.printer?.name || 'Brother DCP-T430W';
+
   const metrics = [
     {
-      title: 'Pending Queue',
+      title: 'Waiting to Print',
       value: health?.pending_jobs ?? 0,
+      subtext: 'In print queue',
       icon: Clock,
-      color: 'amber',
       bgColor: 'bg-amber-500/10',
       borderColor: 'border-amber-500/30',
       textColor: 'text-amber-400',
     },
     {
-      title: 'Completed Jobs',
+      title: 'Successfully Printed',
       value: health?.completed_jobs ?? 0,
-      icon: CheckCircle,
-      color: 'emerald',
+      subtext: 'Printed documents',
+      icon: CheckCircle2,
       bgColor: 'bg-emerald-500/10',
       borderColor: 'border-emerald-500/30',
       textColor: 'text-emerald-400',
     },
     {
-      title: 'Failed Jobs',
+      title: 'Needs Attention',
       value: health?.failed_jobs ?? 0,
+      subtext: 'Failed attempts',
       icon: AlertCircle,
-      color: 'rose',
       bgColor: 'bg-rose-500/10',
       borderColor: 'border-rose-500/30',
       textColor: 'text-rose-400',
     },
     {
-      title: 'Database Engine',
-      value: 'PostgreSQL',
-      icon: Database,
-      color: 'indigo',
-      bgColor: 'bg-indigo-500/10',
-      borderColor: 'border-indigo-500/30',
-      textColor: 'text-indigo-400',
+      title: 'Active Printer',
+      value: isOnline ? 'Ready & Connected' : 'Check Printer',
+      subtext: printerName,
+      icon: Printer,
+      bgColor: isOnline ? 'bg-indigo-500/10' : 'bg-amber-500/10',
+      borderColor: isOnline ? 'border-indigo-500/30' : 'border-amber-500/30',
+      textColor: isOnline ? 'text-indigo-400' : 'text-amber-400',
     },
   ];
 
@@ -53,12 +56,17 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ health }) => {
       {metrics.map((m, idx) => {
         const IconComponent = m.icon;
         return (
-          <div key={idx} className="glass-panel p-4 flex items-center justify-between border transition-all hover:border-white/20">
+          <div key={idx} className="glass-panel p-4 flex items-center justify-between border transition-all hover:border-white/20 shadow-md">
             <div>
-              <p className="text-xs font-medium text-gray-400 mb-1">{m.title}</p>
-              <h3 className="text-2xl font-extrabold text-white tracking-tight">{m.value}</h3>
+              <p className="text-xs font-semibold text-gray-400 mb-0.5">{m.title}</p>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate max-w-[150px]">
+                {m.value}
+              </h3>
+              <p className="text-[11px] text-gray-500 mt-0.5 font-medium truncate max-w-[150px]">
+                {m.subtext}
+              </p>
             </div>
-            <div className={`p-3 rounded-xl border ${m.bgColor} ${m.borderColor} ${m.textColor}`}>
+            <div className={`p-3 rounded-2xl border ${m.bgColor} ${m.borderColor} ${m.textColor} shrink-0`}>
               <IconComponent className="w-5 h-5" />
             </div>
           </div>
@@ -67,3 +75,4 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ health }) => {
     </div>
   );
 };
+

@@ -30,7 +30,7 @@ services:
       WEBHOOK_SECRET: "${WEBHOOK_SECRET:-pintflow_secret_token_123}"
       DEFAULT_PRINTER: "${DEFAULT_PRINTER:-Brother_DCP_T430W}"
       PRINTER_TYPE: "${PRINTER_TYPE:-ipp}" # "ipp", "cups", "mock"
-      PRINTER_ADDRESS: "${PRINTER_ADDRESS:-192.168.1.100:9100}" # Update with your printer IP address
+      PRINTER_ADDRESS: "${PRINTER_ADDRESS:-192.168.1.19}" # Brother DCP-T430W IP address
       GOOGLE_CREDENTIALS_FILE: "/app/storage/credentials.json"
       TEMP_DIR: "/app/storage/temp"
       ARCHIVE_DIR: "/app/storage/archive"

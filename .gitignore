@@ -17,6 +17,7 @@ backend/*.exe
 *.prof
 
 # Storage & Runtime Files
+storage
 storage/temp/*
 storage/archive/*
 storage/logs/*

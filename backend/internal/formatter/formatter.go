@@ -223,16 +223,15 @@ func (f *Formatter) renderPropertyCheckinPDF(pdf *fpdf.Fpdf, data TemplateDataCo
 	pdf.SetFillColor(30, 58, 138)
 	pdf.Rect(12, 12, 186, 22, "F")
 	pdf.SetTextColor(255, 255, 255)
-	pdf.SetFont("Arial", "B", 15)
-	pdf.SetXY(16, 16)
-	pdf.Cell(120, 7, sanitizeText(data.FormTitle))
-	pdf.SetFont("Arial", "B", 9)
-	pdf.SetXY(140, 16)
-	pdf.Cell(54, 7, "PINTFLOW GUEST CHECK-IN")
+	pdf.SetFont("Arial", "B", 13)
+	pdf.Cell(120, 6, "Guest Information Form")
+	pdf.SetFont("Arial", "B", 10)
+	pdf.Cell(0, 6, strings.ToUpper("Property & Guest Check-in Card"))
+	pdf.Ln(6)
 
 	pdf.SetFont("Arial", "", 9)
-	pdf.SetXY(16, 24)
-	pdf.Cell(120, 6, "Automated Guest Check-in Record • Guest 1 Registration")
+	pdf.SetTextColor(220, 225, 240)
+	pdf.Cell(120, 5, "Automated Guest Check-in Record | Guest 1 Registration")
 
 	pdf.SetY(38)
 
@@ -323,7 +322,7 @@ func (f *Formatter) renderPropertyCheckinPDF(pdf *fpdf.Fpdf, data TemplateDataCo
 
 		pdf.SetFont("Arial", "", 9)
 		pdf.SetXY(16, 24)
-		pdf.Cell(120, 6, "Automated Guest Check-in Record • Guest 2 Registration")
+		pdf.Cell(120, 6, "Automated Guest Check-in Record | Guest 2 Registration")
 
 		pdf.SetY(38)
 

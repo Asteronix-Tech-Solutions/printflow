@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
 
 	"github.com/google/uuid"
 	"pintflow/backend/internal/database"
@@ -171,6 +173,14 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 	_ = wp.db.SaveDocument(doc)
 
 	// Step 4: Printing Document Attachment
+	// Safety Check: Verify file is not HTML web preview/sign-in page
+	if isHTMLContent(localTempPath) {
+		wp.logger.WarnJ(job.ID, fmt.Sprintf("Skipping document print for '%s': File content is an HTML web page (Google Drive sign-in/preview page), not a printable document/image/PDF.", job.Filename))
+		_ = wp.db.UpdateJobStatus(job.ID, models.StatusCompleted, "")
+		wp.storage.RemoveTemp(localTempPath)
+		return
+	}
+
 	_ = wp.db.UpdateJobStatus(job.ID, models.StatusPrinting, "")
 	wp.logger.InfoJ(job.ID, fmt.Sprintf("Sending document to printer '%s' (Copies: %d)...", wp.printer.Name(), job.Copies))
 
@@ -181,6 +191,7 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 		wp.storage.RemoveTemp(localTempPath)
 		return
 	}
+
 
 	// Step 5: Archive & Complete
 	archivePath, err := wp.storage.ArchiveFile(localTempPath, job.ID, filepath.Base(job.Filename))
@@ -193,3 +204,21 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 	_ = wp.db.UpdateJobStatus(job.ID, models.StatusCompleted, "")
 	wp.logger.InfoJ(job.ID, "Job completed successfully!")
 }
+
+func isHTMLContent(filePath string) bool {
+	data, err := os.ReadFile(filePath)
+	if err != nil || len(data) == 0 {
+		return false
+	}
+	maxLen := 512
+	if len(data) < maxLen {
+		maxLen = len(data)
+	}
+	header := strings.ToLower(string(data[:maxLen]))
+	return strings.Contains(header, "<!doctype html") ||
+		strings.Contains(header, "<html") ||
+		strings.Contains(header, "google-analytics") ||
+		strings.Contains(header, "vfppkd-") ||
+		strings.Contains(header, "accounts.google.com")
+}
+

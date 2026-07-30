@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"pintflow/backend/internal/models"
 )
+
 
 type CUPSPrinter struct {
 	name        string
@@ -16,7 +18,7 @@ type CUPSPrinter struct {
 }
 
 func NewCUPSPrinter(name, printerName string) *CUPSPrinter {
-	if printerName == "" {
+	if printerName == "" || strings.Contains(printerName, ".") || strings.Contains(printerName, ":") {
 		printerName = name
 	}
 	return &CUPSPrinter{
@@ -24,6 +26,7 @@ func NewCUPSPrinter(name, printerName string) *CUPSPrinter {
 		printerName: printerName,
 	}
 }
+
 
 func (p *CUPSPrinter) Name() string {
 	return p.name
