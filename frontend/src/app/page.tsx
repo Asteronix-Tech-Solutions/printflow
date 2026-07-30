@@ -13,6 +13,7 @@ import {
   fetchLogs,
   retryJob,
   cancelJob,
+  subscribeToEvents,
   HealthResponse,
   Job,
   LogEntry,
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sseConnected, setSseConnected] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsRefreshing(true);
@@ -46,11 +48,35 @@ export default function DashboardPage() {
     }
   }, [activeFilter]);
 
-  // Initial load + Polling interval every 3 seconds
+  // Initial load + Real-time SSE event listener (replacing continuous HTTP polling)
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 3000);
-    return () => clearInterval(interval);
+
+    const eventSource = subscribeToEvents((evtType, data) => {
+      if (evtType === 'connected' || evtType === 'ping') {
+        setSseConnected(true);
+      } else if (evtType === 'job_updated') {
+        setSseConnected(true);
+        if (data && data.id && data.status) {
+          setJobs(prev => prev.map(j => (j.id === data.id ? { ...j, status: data.status, error_message: data.error_message } : j)));
+        }
+        loadData();
+      } else if (evtType === 'health_updated') {
+        setSseConnected(true);
+        fetchHealth().then(setHealth).catch(() => {});
+      } else if (evtType === 'log_added' && data) {
+        setSseConnected(true);
+        setLogs(prev => [data, ...prev].slice(0, 50));
+      }
+    });
+
+    eventSource.onerror = () => {
+      setSseConnected(false);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [loadData]);
 
   const handleRetryJob = async (id: string) => {
@@ -75,6 +101,7 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
       <Header
         printer={health?.printer}
+        sseConnected={sseConnected}
         onOpenQueueModal={() => setIsQueueModalOpen(true)}
         onOpenPrinterModal={() => setIsPrinterModalOpen(true)}
         onRefresh={loadData}

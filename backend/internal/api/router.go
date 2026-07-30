@@ -61,6 +61,7 @@ func NewRouter(h *Handler) http.Handler {
 			r.Post("/printer/config", h.UpdatePrinterConfig)
 
 			r.Get("/logs", h.ListLogs)
+			r.Get("/events", h.HandleSSE)
 		})
 	})
 

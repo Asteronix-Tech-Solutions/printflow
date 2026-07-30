@@ -161,3 +161,31 @@ export function getJobPDFUrl(jobId: string): string {
   return url;
 }
 
+export function subscribeToEvents(onEvent: (type: string, data: any) => void): EventSource {
+  let key = API_KEY;
+  if (typeof window !== 'undefined') {
+    const localKey = localStorage.getItem('pintflow_api_key');
+    if (localKey) key = localKey;
+  }
+
+  const url = key 
+    ? `${API_BASE_URL}/events?api_key=${encodeURIComponent(key)}`
+    : `${API_BASE_URL}/events`;
+
+  const es = new EventSource(url);
+
+  const eventTypes = ['connected', 'ping', 'job_updated', 'log_added', 'health_updated'];
+  eventTypes.forEach(evt => {
+    es.addEventListener(evt, (e: MessageEvent) => {
+      try {
+        const data = e.data ? JSON.parse(e.data) : null;
+        onEvent(evt, data);
+      } catch (err) {
+        console.error('Error parsing SSE event data:', err);
+      }
+    });
+  });
+
+  return es;
+}
+

@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"pintflow/backend/internal/events"
 )
 
 type Logger struct {
-	db       *sql.DB
-	file     *os.File
-	stdLog   *log.Logger
+	db          *sql.DB
+	file        *os.File
+	stdLog      *log.Logger
+	broadcaster *events.Broadcaster
 }
 
 func New(db *sql.DB, logDir string) (*Logger, error) {
@@ -31,6 +33,12 @@ func New(db *sql.DB, logDir string) (*Logger, error) {
 		file:   f,
 		stdLog: log.New(os.Stdout, "[PintFlow] ", log.LstdFlags),
 	}, nil
+}
+
+func (l *Logger) SetBroadcaster(b *events.Broadcaster) {
+	if l != nil {
+		l.broadcaster = b
+	}
 }
 
 func (l *Logger) Log(jobID, level, msg string) {
@@ -61,6 +69,19 @@ func (l *Logger) Log(jobID, level, msg string) {
 			nullableJobID = jobID
 		}
 		_, _ = l.db.Exec(query, nullableJobID, level, msg, timestamp)
+	}
+
+	// Broadcast SSE log event
+	if l.broadcaster != nil {
+		l.broadcaster.Publish(events.Event{
+			Type: "log_added",
+			Data: map[string]interface{}{
+				"job_id":    jobID,
+				"level":     level,
+				"message":   msg,
+				"timestamp": timestamp.Format(time.RFC3339),
+			},
+		})
 	}
 }
 

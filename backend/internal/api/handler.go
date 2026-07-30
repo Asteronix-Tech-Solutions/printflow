@@ -17,6 +17,7 @@ import (
 	"pintflow/backend/internal/config"
 	"pintflow/backend/internal/database"
 	"pintflow/backend/internal/formatter"
+	"pintflow/backend/internal/events"
 	"pintflow/backend/internal/logger"
 	"pintflow/backend/internal/models"
 	"pintflow/backend/internal/printer"
@@ -25,13 +26,14 @@ import (
 )
 
 type Handler struct {
-	cfg       *config.Config
-	db        *database.DB
-	printer   *printer.Manager
-	queue     *queue.WorkerPool
-	storage   *storage.Storage
-	formatter *formatter.Formatter
-	logger    *logger.Logger
+	cfg         *config.Config
+	db          *database.DB
+	printer     *printer.Manager
+	queue       *queue.WorkerPool
+	storage     *storage.Storage
+	formatter   *formatter.Formatter
+	logger      *logger.Logger
+	broadcaster *events.Broadcaster
 }
 
 func NewHandler(cfg *config.Config, db *database.DB, prn *printer.Manager, q *queue.WorkerPool, stg *storage.Storage, l *logger.Logger) *Handler {
@@ -43,6 +45,62 @@ func NewHandler(cfg *config.Config, db *database.DB, prn *printer.Manager, q *qu
 		storage:   stg,
 		formatter: formatter.NewFormatter(),
 		logger:    l,
+	}
+}
+
+func (h *Handler) SetBroadcaster(b *events.Broadcaster) {
+	if h != nil {
+		h.broadcaster = b
+	}
+}
+
+func (h *Handler) HandleSSE(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, `{"error":"streaming unsupported"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+
+	if h.broadcaster == nil {
+		http.Error(w, `{"error":"broadcaster uninitialized"}`, http.StatusInternalServerError)
+		return
+	}
+
+	ch := h.broadcaster.Subscribe()
+	defer h.broadcaster.Unsubscribe(ch)
+
+	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\"}\n\n")
+	flusher.Flush()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			fmt.Fprintf(w, "event: ping\ndata: {\"time\":%d}\n\n", time.Now().Unix())
+			flusher.Flush()
+		case ev, open := <-ch:
+			if !open {
+				return
+			}
+			dataJSON, err := json.Marshal(ev.Data)
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, string(dataJSON))
+			flusher.Flush()
+		}
 	}
 }
 
@@ -137,6 +195,9 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info(fmt.Sprintf("Webhook received and job created: %s for user %s", job.ID, job.UserName))
 	h.queue.NotifyNewJob()
+	if h.broadcaster != nil {
+		h.broadcaster.Publish(events.Event{Type: "job_updated", Data: job})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -247,6 +308,9 @@ func (h *Handler) ManualQueueJob(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info(fmt.Sprintf("Manual print job queued via WebApp: %s for %s", job.ID, job.UserName))
 	h.queue.NotifyNewJob()
+	if h.broadcaster != nil {
+		h.broadcaster.Publish(events.Event{Type: "job_updated", Data: job})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -273,6 +337,9 @@ func (h *Handler) RetryJob(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.InfoJ(job.ID, "Job re-queued for retry by operator")
 	h.queue.NotifyNewJob()
+	if h.broadcaster != nil {
+		h.broadcaster.Publish(events.Event{Type: "job_updated", Data: map[string]interface{}{"id": job.ID, "status": models.StatusPending}})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -290,6 +357,9 @@ func (h *Handler) CancelJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.logger.InfoJ(id, "Job cancelled by operator")
+	if h.broadcaster != nil {
+		h.broadcaster.Publish(events.Event{Type: "job_updated", Data: map[string]interface{}{"id": id, "status": models.StatusCancelled, "error_message": "Cancelled by user"}})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -330,6 +400,10 @@ func (h *Handler) UpdatePrinterConfig(w http.ResponseWriter, r *http.Request) {
 	_ = h.db.SetSetting("printer_type", cfg.Type)
 	_ = h.db.SetSetting("printer_address", cfg.Address)
 	_ = h.db.SetSetting("paper_size", cfg.PaperSize)
+
+	if h.broadcaster != nil {
+		h.broadcaster.Publish(events.Event{Type: "health_updated", Data: status})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

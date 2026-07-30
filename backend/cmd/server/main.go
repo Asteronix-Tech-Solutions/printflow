@@ -12,6 +12,7 @@ import (
 	"pintflow/backend/internal/api"
 	"pintflow/backend/internal/config"
 	"pintflow/backend/internal/database"
+	"pintflow/backend/internal/events"
 	"pintflow/backend/internal/google"
 	"pintflow/backend/internal/logger"
 	"pintflow/backend/internal/printer"
@@ -37,6 +38,9 @@ func main() {
 	}
 	defer db.Close()
 
+	// Initialize Event Broadcaster for SSE
+	broadcaster := events.NewBroadcaster()
+
 	// Initialize Logger
 	log, err := logger.New(db.DB, cfg.LogDir)
 	if err != nil {
@@ -44,6 +48,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer log.Close()
+	log.SetBroadcaster(broadcaster)
 
 	log.Info(fmt.Sprintf("PintFlow backend starting up... (Database: %s, Port: %s)", cfg.DatabaseDriver, cfg.Port))
 
@@ -74,11 +79,13 @@ func main() {
 
 	// Initialize Worker Queue Pool
 	workerPool := queue.NewWorkerPool(db, driveClient, printerMgr, stg, log, cfg.MaxConcurrentJobs)
+	workerPool.SetBroadcaster(broadcaster)
 	workerPool.Start()
 	defer workerPool.Stop()
 
 	// Initialize HTTP API Router
 	handler := api.NewHandler(cfg, db, printerMgr, workerPool, stg, log)
+	handler.SetBroadcaster(broadcaster)
 	router := api.NewRouter(handler)
 
 	srv := &http.Server{

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"pintflow/backend/internal/database"
+	"pintflow/backend/internal/events"
 	"pintflow/backend/internal/formatter"
 	"pintflow/backend/internal/google"
 	"pintflow/backend/internal/logger"
@@ -27,6 +28,7 @@ type WorkerPool struct {
 	storage     *storage.Storage
 	formatter   *formatter.Formatter
 	logger      *logger.Logger
+	broadcaster *events.Broadcaster
 	concurrency int
 	notifyChan  chan struct{}
 	ctx         context.Context
@@ -51,6 +53,27 @@ func NewWorkerPool(db *database.DB, driveClient *google.DriveClient, prn *printe
 		ctx:         ctx,
 		cancel:      cancel,
 	}
+}
+
+func (wp *WorkerPool) SetBroadcaster(b *events.Broadcaster) {
+	if wp != nil {
+		wp.broadcaster = b
+	}
+}
+
+func (wp *WorkerPool) updateJobStatus(jobID, status, errMsg string) error {
+	err := wp.db.UpdateJobStatus(jobID, status, errMsg)
+	if wp.broadcaster != nil {
+		wp.broadcaster.Publish(events.Event{
+			Type: "job_updated",
+			Data: map[string]interface{}{
+				"id":            jobID,
+				"status":        status,
+				"error_message": errMsg,
+			},
+		})
+	}
+	return err
 }
 
 func (wp *WorkerPool) Start() {
@@ -133,7 +156,7 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 	}
 
 	// Step 2: Downloading Attached Document (if Google Drive file)
-	_ = wp.db.UpdateJobStatus(job.ID, models.StatusDownloading, "")
+	_ = wp.updateJobStatus(job.ID, models.StatusDownloading, "")
 	localTempPath := wp.storage.TempPathForJob(job.ID, job.Filename)
 
 	if job.GoogleFileID != "" {
@@ -141,23 +164,23 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 		if err := wp.driveClient.DownloadFile(wp.ctx, job.GoogleFileID, localTempPath); err != nil {
 			errMsg := fmt.Sprintf("Failed to download file from Google Drive: %v", err)
 			wp.logger.ErrorJ(job.ID, errMsg)
-			_ = wp.db.UpdateJobStatus(job.ID, models.StatusFailed, errMsg)
+			_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
 			return
 		}
 	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) || len(job.FormResponses) > 0 || job.FormTitle != "" {
-		_ = wp.db.UpdateJobStatus(job.ID, models.StatusCompleted, "")
+		_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
 		wp.logger.InfoJ(job.ID, "Job completed successfully (Combined Form Details & Embedded Photo ID printed!)")
 		return
 	}
 
 
 	// Step 3: Processing & Metadata
-	_ = wp.db.UpdateJobStatus(job.ID, models.StatusProcessing, "")
+	_ = wp.updateJobStatus(job.ID, models.StatusProcessing, "")
 	hash, size, err := wp.storage.CalculateSHA256(localTempPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to calculate document checksum: %v", err)
 		wp.logger.ErrorJ(job.ID, errMsg)
-		_ = wp.db.UpdateJobStatus(job.ID, models.StatusFailed, errMsg)
+		_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
 		wp.storage.RemoveTemp(localTempPath)
 		return
 	}
@@ -177,18 +200,18 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 	// Safety Check: Verify file is not HTML web preview/sign-in page
 	if isHTMLContent(localTempPath) {
 		wp.logger.WarnJ(job.ID, fmt.Sprintf("Skipping document print for '%s': File content is an HTML web page (Google Drive sign-in/preview page), not a printable document/image/PDF.", job.Filename))
-		_ = wp.db.UpdateJobStatus(job.ID, models.StatusCompleted, "")
+		_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
 		wp.storage.RemoveTemp(localTempPath)
 		return
 	}
 
-	_ = wp.db.UpdateJobStatus(job.ID, models.StatusPrinting, "")
+	_ = wp.updateJobStatus(job.ID, models.StatusPrinting, "")
 	wp.logger.InfoJ(job.ID, fmt.Sprintf("Sending document to printer '%s' (Copies: %d)...", wp.printer.Name(), job.Copies))
 
 	if err := wp.printer.Print(wp.ctx, localTempPath, job.Copies); err != nil {
 		errMsg := fmt.Sprintf("Print job failed: %v", err)
 		wp.logger.ErrorJ(job.ID, errMsg)
-		_ = wp.db.UpdateJobStatus(job.ID, models.StatusFailed, errMsg)
+		_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
 		wp.storage.RemoveTemp(localTempPath)
 		return
 	}
@@ -202,7 +225,7 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 		wp.logger.InfoJ(job.ID, fmt.Sprintf("File archived successfully at %s", archivePath))
 	}
 
-	_ = wp.db.UpdateJobStatus(job.ID, models.StatusCompleted, "")
+	_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
 	wp.logger.InfoJ(job.ID, "Job completed successfully!")
 }
 

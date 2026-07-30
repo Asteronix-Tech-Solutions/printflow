@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const BACKEND_URL = process.env.INTERNAL_BACKEND_URL || process.env.BACKEND_URL || 'http://pintflow_backend:8080/api/v1';
 const API_KEY = process.env.API_KEY || process.env.NEXT_PUBLIC_API_KEY || '';
 
