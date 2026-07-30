@@ -16,6 +16,11 @@ type Config struct {
 	PrinterAddress        string // IP or printer URI
 	GoogleCredentialsFile string
 	GoogleAPIKey          string
+	APIKey                string
+	CORSAllowedOrigins    []string
+	MaxPayloadSizeMB      int64
+	RateLimitRPS          float64
+	RateLimitBurst        int
 	TempDir               string
 	ArchiveDir            string
 	LogDir                string
@@ -42,11 +47,22 @@ func Load() *Config {
 		}
 	}
 
+	corsOriginsStr := getEnv("CORS_ALLOWED_ORIGINS", "*")
+	corsOrigins := strings.Split(corsOriginsStr, ",")
+	for i := range corsOrigins {
+		corsOrigins[i] = strings.TrimSpace(corsOrigins[i])
+	}
+
 	return &Config{
 		Port:                  getEnv("PORT", "8080"),
 		DatabaseDriver:        driver,
 		DatabaseURL:           dbURL,
 		WebhookSecret:         getEnv("WEBHOOK_SECRET", "pintflow_secret_token_123"),
+		APIKey:                getEnv("API_KEY", ""),
+		CORSAllowedOrigins:    corsOrigins,
+		MaxPayloadSizeMB:      int64(getEnvAsInt("MAX_PAYLOAD_SIZE_MB", 25)),
+		RateLimitRPS:          float64(getEnvAsInt("RATE_LIMIT_RPS", 50)),
+		RateLimitBurst:        getEnvAsInt("RATE_LIMIT_BURST", 100),
 		DefaultPrinter:        getEnv("DEFAULT_PRINTER", "Brother_DCP_T430W"),
 		PrinterType:           getEnv("PRINTER_TYPE", "mock"),
 		PrinterAddress:        getEnv("PRINTER_ADDRESS", "192.168.1.100:9100"),

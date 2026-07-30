@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -52,7 +53,12 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.Secret != h.cfg.WebhookSecret {
+	secret := r.Header.Get("X-Webhook-Secret")
+	if secret == "" {
+		secret = payload.Secret
+	}
+
+	if secret == "" || subtle.ConstantTimeCompare([]byte(secret), []byte(h.cfg.WebhookSecret)) != 1 {
 		h.logger.Warn(fmt.Sprintf("Unauthorized webhook request attempt with invalid secret from IP: %s", r.RemoteAddr))
 		http.Error(w, `{"error":"unauthorized secret"}`, http.StatusUnauthorized)
 		return
@@ -63,6 +69,7 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	} else if payload.Filename == "" {
 		payload.Filename = "google_form_submission.pdf"
 	}
+	payload.Filename = storage.SanitizeFilename(payload.Filename)
 
 	if payload.Printer == "" {
 		payload.Printer = h.printer.Name()
@@ -199,6 +206,7 @@ func (h *Handler) ManualQueueJob(w http.ResponseWriter, r *http.Request) {
 	if payload.Filename == "" {
 		payload.Filename = "manual_print_job.pdf"
 	}
+	payload.Filename = storage.SanitizeFilename(payload.Filename)
 	if payload.Printer == "" {
 		payload.Printer = h.printer.Name()
 	}
@@ -357,8 +365,14 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetHealth(w http.ResponseWriter, r *http.Request) {
-	pStatus, _ := h.printer.GetStatus(r.Context())
-	pending, completed, failed, _ := h.db.GetJobStats()
+	var pStatus models.PrinterStatus
+	if h.printer != nil {
+		pStatus, _ = h.printer.GetStatus(r.Context())
+	}
+	var pending, completed, failed int
+	if h.db != nil {
+		pending, completed, failed, _ = h.db.GetJobStats()
+	}
 
 	resp := models.HealthResponse{
 		Status:        "healthy",

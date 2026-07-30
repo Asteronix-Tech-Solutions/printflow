@@ -34,11 +34,19 @@ func New(db *sql.DB, logDir string) (*Logger, error) {
 }
 
 func (l *Logger) Log(jobID, level, msg string) {
+	if l == nil {
+		log.Printf("[PintFlow] [%s] %s %s\n", level, jobIDPrefix(jobID), msg)
+		return
+	}
 	timestamp := time.Now()
 	entry := fmt.Sprintf("[%s] [%s] %s %s\n", timestamp.Format(time.RFC3339), level, jobIDPrefix(jobID), msg)
 
 	// Write to console
-	l.stdLog.Print(entry)
+	if l.stdLog != nil {
+		l.stdLog.Print(entry)
+	} else {
+		log.Print(entry)
+	}
 
 	// Write to file
 	if l.file != nil {

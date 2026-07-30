@@ -8,6 +8,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -33,19 +34,31 @@ func NewStorage(tempDir, archiveDir, logDir string) (*Storage, error) {
 	return s, nil
 }
 
+func SanitizeFilename(filename string) string {
+	clean := filepath.Base(filename)
+	clean = strings.ReplaceAll(clean, "..", "")
+	clean = strings.ReplaceAll(clean, "/", "_")
+	clean = strings.ReplaceAll(clean, "\\", "_")
+	clean = strings.TrimSpace(clean)
+	if clean == "" || clean == "." {
+		return "document.pdf"
+	}
+	return clean
+}
+
 func (s *Storage) TempPath(filename string) string {
-	return filepath.Join(s.TempDir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), filename))
+	return filepath.Join(s.TempDir, fmt.Sprintf("%d_%s", time.Now().UnixNano(), SanitizeFilename(filename)))
 }
 
 func (s *Storage) TempPathForJob(jobID, filename string) string {
-	return filepath.Join(s.TempDir, fmt.Sprintf("%s_%s", jobID, filename))
+	return filepath.Join(s.TempDir, fmt.Sprintf("%s_%s", SanitizeFilename(jobID), SanitizeFilename(filename)))
 }
 
 func (s *Storage) ArchivePath(jobID, filename string) string {
 	dateSubdir := time.Now().Format("2006-01-02")
 	archiveSubdir := filepath.Join(s.ArchiveDir, dateSubdir)
 	_ = os.MkdirAll(archiveSubdir, 0755)
-	return filepath.Join(archiveSubdir, fmt.Sprintf("%s_%s", jobID, filename))
+	return filepath.Join(archiveSubdir, fmt.Sprintf("%s_%s", SanitizeFilename(jobID), SanitizeFilename(filename)))
 }
 
 func (s *Storage) CalculateSHA256(filePath string) (string, int64, error) {
