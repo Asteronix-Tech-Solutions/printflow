@@ -38,9 +38,6 @@ func NewManager(defaultName, defaultType, defaultAddress string) *Manager {
 func (m *Manager) createDriver(name, pType, address string) Printer {
 	switch pType {
 	case "cups":
-		if strings.Contains(address, ".") || strings.Contains(address, ":") {
-			return NewNetworkIPPPrinter(name, address)
-		}
 		return NewCUPSPrinter(name, address)
 	case "ipp", "raw":
 		return NewNetworkIPPPrinter(name, address)
