@@ -14,8 +14,34 @@ env:
   FRONTEND_IMAGE_NAME: ${{ github.repository_owner }}/pintflow-frontend
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'Dockerfile.backend'
+              - '.github/workflows/ci-cd.yml'
+            frontend:
+              - 'frontend/**'
+              - 'Dockerfile.frontend'
+              - '.github/workflows/ci-cd.yml'
+
   test-backend:
     name: Backend CI (Go)
+    needs: [changes]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
@@ -34,6 +60,8 @@ jobs:
 
   test-frontend:
     name: Frontend CI (Next.js)
+    needs: [changes]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
