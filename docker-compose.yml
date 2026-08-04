@@ -34,6 +34,10 @@ services:
       DEFAULT_PRINTER: "${DEFAULT_PRINTER:-Brother_DCP_T430W}"
       PRINTER_TYPE: "${PRINTER_TYPE:-ipp}" # "ipp", "cups", "mock"
       PRINTER_ADDRESS: "${PRINTER_ADDRESS:-192.168.1.19}" # Brother DCP-T430W IP address
+      SCANNER_TYPE: "${SCANNER_TYPE:-sane}" # "sane", "mock"
+      SCANNER_DEVICE: "${SCANNER_DEVICE:-}"
+      SCAN_DIR: "/app/storage/scans"
+      SCAN_WATCH_DIR: "/app/storage/scans/inbox"
       GOOGLE_CREDENTIALS_FILE: "/app/storage/credentials.json"
       TEMP_DIR: "/app/storage/temp"
       ARCHIVE_DIR: "/app/storage/archive"
@@ -49,6 +53,9 @@ services:
         condition: service_healthy
 
   frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
     image: ghcr.io/${GH_OWNER:-asteronix-tech-solutions}/pintflow-frontend:latest
     container_name: pintflow_frontend
     restart: always
