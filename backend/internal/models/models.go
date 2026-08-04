@@ -146,13 +146,71 @@ type PrinterStatus struct {
 	CheckedAt     time.Time `json:"checked_at"`
 }
 
+// Scan job statuses
+const (
+	ScanStatusPending   = "scan_pending"
+	ScanStatusScanning  = "scanning"
+	ScanStatusCompleted = "scan_completed"
+	ScanStatusFailed    = "scan_failed"
+)
+
+// ScanJob represents a scan job record
+type ScanJob struct {
+	ID           string     `json:"id"`
+	Status       string     `json:"status"`
+	ScannerName  string     `json:"scanner_name"`
+	Resolution   int        `json:"resolution"`
+	ColorMode    string     `json:"color_mode"`
+	Format       string     `json:"format"`
+	PaperSize    string     `json:"paper_size"`
+	Filename     string     `json:"filename"`
+	FileSize     int64      `json:"file_size"`
+	LocalPath    string     `json:"local_path,omitempty"`
+	UserName     string     `json:"user_name,omitempty"`
+	Source       string     `json:"source"` // "web" or "push"
+	ErrorMessage string     `json:"error_message,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
+}
+
+// ScannerDevice represents a discovered scanner device
+type ScannerDevice struct {
+	DeviceName string `json:"device_name"`
+	Vendor     string `json:"vendor"`
+	Model      string `json:"model"`
+	Type       string `json:"type"`
+}
+
+// ScannerStatus represents live scanner hardware info
+type ScannerStatus struct {
+	Name          string          `json:"name"`
+	Type          string          `json:"type"`
+	IsOnline      bool            `json:"is_online"`
+	StatusMessage string          `json:"status_message"`
+	Devices       []ScannerDevice `json:"devices"`
+	CheckedAt     time.Time       `json:"checked_at"`
+}
+
+// ScanRequest represents incoming scan request from the dashboard
+type ScanRequest struct {
+	Resolution int    `json:"resolution,omitempty"`
+	ColorMode  string `json:"color_mode,omitempty"`
+	Format     string `json:"format,omitempty"`
+	PaperSize  string `json:"paper_size,omitempty"`
+	DeviceName string `json:"device_name,omitempty"`
+	UserName   string `json:"user_name,omitempty"`
+}
+
 // HealthResponse represents the /health endpoint output
 type HealthResponse struct {
-	Status        string        `json:"status"`
-	Database      string        `json:"database"`
-	Printer       PrinterStatus `json:"printer"`
-	PendingJobs   int           `json:"pending_jobs"`
-	CompletedJobs int           `json:"completed_jobs"`
-	FailedJobs    int           `json:"failed_jobs"`
+	Status         string        `json:"status"`
+	Database       string        `json:"database"`
+	Printer        PrinterStatus `json:"printer"`
+	Scanner        ScannerStatus `json:"scanner"`
+	PendingJobs    int           `json:"pending_jobs"`
+	CompletedJobs  int           `json:"completed_jobs"`
+	FailedJobs     int           `json:"failed_jobs"`
+	PendingScans   int           `json:"pending_scans"`
+	CompletedScans int           `json:"completed_scans"`
 }
 

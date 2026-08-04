@@ -120,6 +120,24 @@ func (db *DB) Migrate() error {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS scan_jobs (
+			id VARCHAR(36) PRIMARY KEY,
+			status VARCHAR(32) NOT NULL DEFAULT 'scan_pending',
+			scanner_name VARCHAR(255),
+			resolution INT DEFAULT 300,
+			color_mode VARCHAR(32) DEFAULT 'Color',
+			format VARCHAR(16) DEFAULT 'pdf',
+			paper_size VARCHAR(16) DEFAULT 'A4',
+			filename VARCHAR(255),
+			file_size BIGINT DEFAULT 0,
+			local_path VARCHAR(512),
+			user_name VARCHAR(255),
+			source VARCHAR(16) DEFAULT 'web',
+			error_message TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_scan_jobs_status ON scan_jobs(status);`,
 	}
 
 	for _, query := range queries {
@@ -395,4 +413,78 @@ func (db *DB) SetSetting(key, value string) error {
 	}
 	_, err := db.Exec(query, key, value)
 	return err
+}
+
+// ===== Scan Job Methods =====
+
+func (db *DB) CreateScanJob(job *models.ScanJob) error {
+	query := `INSERT INTO scan_jobs (id, status, scanner_name, resolution, color_mode, format, paper_size, filename, file_size, local_path, user_name, source, error_message, created_at, completed_at)
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
+	if job.CreatedAt.IsZero() {
+		job.CreatedAt = time.Now()
+	}
+	_, err := db.Exec(query, job.ID, job.Status, job.ScannerName, job.Resolution, job.ColorMode, job.Format, job.PaperSize, job.Filename, job.FileSize, job.LocalPath, job.UserName, job.Source, job.ErrorMessage, job.CreatedAt, job.CompletedAt)
+	return err
+}
+
+func (db *DB) UpdateScanJobStatus(id, status, errMsg string) error {
+	query := `UPDATE scan_jobs SET status = $1, error_message = $2 WHERE id = $3`
+	_, err := db.Exec(query, status, errMsg, id)
+	return err
+}
+
+func (db *DB) CompleteScanJob(id, filename, localPath string, fileSize int64) error {
+	now := time.Now()
+	query := `UPDATE scan_jobs SET status = $1, filename = $2, local_path = $3, file_size = $4, completed_at = $5 WHERE id = $6`
+	_, err := db.Exec(query, models.ScanStatusCompleted, filename, localPath, fileSize, now, id)
+	return err
+}
+
+func (db *DB) GetScanJob(id string) (*models.ScanJob, error) {
+	query := `SELECT id, status, COALESCE(scanner_name, ''), resolution, COALESCE(color_mode, 'Color'), COALESCE(format, 'pdf'), COALESCE(paper_size, 'A4'), COALESCE(filename, ''), file_size, COALESCE(local_path, ''), COALESCE(user_name, ''), COALESCE(source, 'web'), COALESCE(error_message, ''), created_at, completed_at FROM scan_jobs WHERE id = $1`
+	row := db.QueryRow(query, id)
+
+	var job models.ScanJob
+	var completedAt sql.NullTime
+	err := row.Scan(&job.ID, &job.Status, &job.ScannerName, &job.Resolution, &job.ColorMode, &job.Format, &job.PaperSize, &job.Filename, &job.FileSize, &job.LocalPath, &job.UserName, &job.Source, &job.ErrorMessage, &job.CreatedAt, &completedAt)
+	if err != nil {
+		return nil, err
+	}
+	if completedAt.Valid {
+		job.CompletedAt = &completedAt.Time
+	}
+	return &job, nil
+}
+
+func (db *DB) ListScanJobs(limit, offset int) ([]*models.ScanJob, error) {
+	query := `SELECT id, status, COALESCE(scanner_name, ''), resolution, COALESCE(color_mode, 'Color'), COALESCE(format, 'pdf'), COALESCE(paper_size, 'A4'), COALESCE(filename, ''), file_size, COALESCE(local_path, ''), COALESCE(user_name, ''), COALESCE(source, 'web'), COALESCE(error_message, ''), created_at, completed_at FROM scan_jobs ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+	rows, err := db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []*models.ScanJob
+	for rows.Next() {
+		var job models.ScanJob
+		var completedAt sql.NullTime
+		if err := rows.Scan(&job.ID, &job.Status, &job.ScannerName, &job.Resolution, &job.ColorMode, &job.Format, &job.PaperSize, &job.Filename, &job.FileSize, &job.LocalPath, &job.UserName, &job.Source, &job.ErrorMessage, &job.CreatedAt, &completedAt); err != nil {
+			return nil, err
+		}
+		if completedAt.Valid {
+			job.CompletedAt = &completedAt.Time
+		}
+		jobs = append(jobs, &job)
+	}
+	return jobs, nil
+}
+
+func (db *DB) GetScanJobStats() (pending, completed, failed int, err error) {
+	query := `SELECT
+		COALESCE(SUM(CASE WHEN status IN ('scan_pending', 'scanning') THEN 1 ELSE 0 END), 0) as pending,
+		COALESCE(SUM(CASE WHEN status = 'scan_completed' THEN 1 ELSE 0 END), 0) as completed,
+		COALESCE(SUM(CASE WHEN status = 'scan_failed' THEN 1 ELSE 0 END), 0) as failed
+		FROM scan_jobs`
+	err = db.QueryRow(query).Scan(&pending, &completed, &failed)
+	return
 }

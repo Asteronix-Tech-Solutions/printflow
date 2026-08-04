@@ -16,12 +16,13 @@ import (
 
 	"pintflow/backend/internal/config"
 	"pintflow/backend/internal/database"
-	"pintflow/backend/internal/formatter"
 	"pintflow/backend/internal/events"
+	"pintflow/backend/internal/formatter"
 	"pintflow/backend/internal/logger"
 	"pintflow/backend/internal/models"
 	"pintflow/backend/internal/printer"
 	"pintflow/backend/internal/queue"
+	"pintflow/backend/internal/scanner"
 	"pintflow/backend/internal/storage"
 )
 
@@ -29,6 +30,7 @@ type Handler struct {
 	cfg         *config.Config
 	db          *database.DB
 	printer     *printer.Manager
+	scanner     *scanner.Manager
 	queue       *queue.WorkerPool
 	storage     *storage.Storage
 	formatter   *formatter.Formatter
@@ -36,11 +38,12 @@ type Handler struct {
 	broadcaster *events.Broadcaster
 }
 
-func NewHandler(cfg *config.Config, db *database.DB, prn *printer.Manager, q *queue.WorkerPool, stg *storage.Storage, l *logger.Logger) *Handler {
+func NewHandler(cfg *config.Config, db *database.DB, prn *printer.Manager, scn *scanner.Manager, q *queue.WorkerPool, stg *storage.Storage, l *logger.Logger) *Handler {
 	return &Handler{
 		cfg:       cfg,
 		db:        db,
 		printer:   prn,
+		scanner:   scn,
 		queue:     q,
 		storage:   stg,
 		formatter: formatter.NewFormatter(),
@@ -449,18 +452,29 @@ func (h *Handler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	if h.printer != nil {
 		pStatus, _ = h.printer.GetStatus(r.Context())
 	}
+	var sStatus models.ScannerStatus
+	if h.scanner != nil {
+		sStatus, _ = h.scanner.GetStatus(r.Context())
+	}
 	var pending, completed, failed int
 	if h.db != nil {
 		pending, completed, failed, _ = h.db.GetJobStats()
 	}
+	var pendingScans, completedScans int
+	if h.db != nil {
+		pendingScans, completedScans, _, _ = h.db.GetScanJobStats()
+	}
 
 	resp := models.HealthResponse{
-		Status:        "healthy",
-		Database:      "connected",
-		Printer:       pStatus,
-		PendingJobs:   pending,
-		CompletedJobs: completed,
-		FailedJobs:    failed,
+		Status:         "healthy",
+		Database:       "connected",
+		Printer:        pStatus,
+		Scanner:        sStatus,
+		PendingJobs:    pending,
+		CompletedJobs:  completed,
+		FailedJobs:     failed,
+		PendingScans:   pendingScans,
+		CompletedScans: completedScans,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -746,3 +760,200 @@ func (h *Handler) PreviewTemplatePDF(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(pdfBytes)
 }
 
+// ===== Scanner Handlers =====
+
+func (h *Handler) StartScan(w http.ResponseWriter, r *http.Request) {
+	var req models.ScanRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	// Apply defaults
+	if req.Resolution <= 0 {
+		req.Resolution = 300
+	}
+	if req.ColorMode == "" {
+		req.ColorMode = "Color"
+	}
+	if req.Format == "" {
+		req.Format = "pdf"
+	}
+	if req.PaperSize == "" {
+		req.PaperSize = "A4"
+	}
+
+	scanJobID := uuid.New().String()
+
+	// Determine file extension from format
+	ext := ".pdf"
+	switch req.Format {
+	case "jpeg":
+		ext = ".jpg"
+	case "png":
+		ext = ".png"
+	}
+	filename := fmt.Sprintf("scan_%s%s", scanJobID[:8], ext)
+	outputPath := h.storage.ScanPathForJob(scanJobID, filename)
+
+	scanJob := &models.ScanJob{
+		ID:          scanJobID,
+		Status:      models.ScanStatusPending,
+		ScannerName: h.scanner.Name(),
+		Resolution:  req.Resolution,
+		ColorMode:   req.ColorMode,
+		Format:      req.Format,
+		PaperSize:   req.PaperSize,
+		Filename:    filename,
+		UserName:    req.UserName,
+		Source:      "web",
+	}
+
+	if err := h.db.CreateScanJob(scanJob); err != nil {
+		h.logger.Error(fmt.Sprintf("Failed to create scan job record: %v", err))
+		http.Error(w, `{"error":"failed to create scan job"}`, http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info(fmt.Sprintf("Scan job created: %s (Resolution: %d, Format: %s, Color: %s)", scanJobID, req.Resolution, req.Format, req.ColorMode))
+
+	if h.broadcaster != nil {
+		h.broadcaster.Publish(events.Event{Type: "scan_updated", Data: scanJob})
+	}
+
+	// Run scan asynchronously
+	go func() {
+		_ = h.db.UpdateScanJobStatus(scanJobID, models.ScanStatusScanning, "")
+		if h.broadcaster != nil {
+			h.broadcaster.Publish(events.Event{Type: "scan_updated", Data: map[string]interface{}{"id": scanJobID, "status": models.ScanStatusScanning}})
+		}
+
+		opts := scanner.ScanOptions{
+			Resolution: req.Resolution,
+			ColorMode:  req.ColorMode,
+			Format:     req.Format,
+			PaperSize:  req.PaperSize,
+			DeviceName: req.DeviceName,
+			OutputPath: outputPath,
+		}
+
+		scannedBytes, err := h.scanner.Scan(r.Context(), opts)
+		if err != nil {
+			errMsg := fmt.Sprintf("Scan failed: %v", err)
+			h.logger.Error(errMsg)
+			_ = h.db.UpdateScanJobStatus(scanJobID, models.ScanStatusFailed, errMsg)
+			if h.broadcaster != nil {
+				h.broadcaster.Publish(events.Event{Type: "scan_updated", Data: map[string]interface{}{"id": scanJobID, "status": models.ScanStatusFailed, "error_message": errMsg}})
+			}
+			return
+		}
+
+		fileSize := int64(len(scannedBytes))
+		_ = h.db.CompleteScanJob(scanJobID, filename, outputPath, fileSize)
+		h.logger.Info(fmt.Sprintf("Scan completed: %s (%.1f KB)", scanJobID, float64(fileSize)/1024))
+
+		if h.broadcaster != nil {
+			h.broadcaster.Publish(events.Event{Type: "scan_updated", Data: map[string]interface{}{
+				"id": scanJobID, "status": models.ScanStatusCompleted,
+				"filename": filename, "file_size": fileSize,
+			}})
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Scan job started",
+		"scan_id": scanJobID,
+	})
+}
+
+func (h *Handler) ListScanJobs(w http.ResponseWriter, r *http.Request) {
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50
+	offset := 0
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+	if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+		offset = o
+	}
+
+	jobs, err := h.db.ListScanJobs(limit, offset)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"failed to list scan jobs: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	if jobs == nil {
+		jobs = []*models.ScanJob{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"scan_jobs": jobs,
+		"count":     len(jobs),
+	})
+}
+
+func (h *Handler) GetScanJob(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	job, err := h.db.GetScanJob(id)
+	if err != nil {
+		http.Error(w, `{"error":"scan job not found"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(job)
+}
+
+func (h *Handler) DownloadScanFile(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	job, err := h.db.GetScanJob(id)
+	if err != nil {
+		http.Error(w, `{"error":"scan job not found"}`, http.StatusNotFound)
+		return
+	}
+
+	if job.Status != models.ScanStatusCompleted || job.LocalPath == "" {
+		http.Error(w, `{"error":"scan file not available"}`, http.StatusNotFound)
+		return
+	}
+
+	fileBytes, err := os.ReadFile(job.LocalPath)
+	if err != nil {
+		http.Error(w, `{"error":"scan file not found on disk"}`, http.StatusNotFound)
+		return
+	}
+
+	// Set content type based on format
+	contentType := "application/pdf"
+	switch job.Format {
+	case "jpeg":
+		contentType = "image/jpeg"
+	case "png":
+		contentType = "image/png"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", job.Filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(fileBytes)))
+	_, _ = w.Write(fileBytes)
+}
+
+func (h *Handler) GetScannerStatus(w http.ResponseWriter, r *http.Request) {
+	if h.scanner == nil {
+		http.Error(w, `{"error":"scanner not configured"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	status, _ := h.scanner.GetStatus(r.Context())
+	devices, _ := h.scanner.ListDevices(r.Context())
+	status.Devices = devices
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": status,
+	})
+}

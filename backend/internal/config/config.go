@@ -25,6 +25,10 @@ type Config struct {
 	ArchiveDir            string
 	LogDir                string
 	MaxConcurrentJobs     int
+	ScannerType           string // "sane", "mock"
+	ScannerDevice         string // optional: specific SANE device name
+	ScanDir               string // output directory for scans
+	ScanWatchDir          string // push-scan inbox directory
 }
 
 func Load() *Config {
@@ -72,6 +76,10 @@ func Load() *Config {
 		ArchiveDir:            getEnv("ARCHIVE_DIR", "storage/archive"),
 		LogDir:                getEnv("LOG_DIR", "storage/logs"),
 		MaxConcurrentJobs:     getEnvAsInt("MAX_CONCURRENT_JOBS", 3),
+		ScannerType:           getEnv("SCANNER_TYPE", "mock"),
+		ScannerDevice:         getEnv("SCANNER_DEVICE", ""),
+		ScanDir:               getEnv("SCAN_DIR", "storage/scans"),
+		ScanWatchDir:          getEnv("SCAN_WATCH_DIR", "storage/scans/inbox"),
 	}
 }
 

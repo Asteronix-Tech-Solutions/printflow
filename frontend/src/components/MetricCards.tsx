@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Clock, CheckCircle2, AlertCircle, Printer } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Printer, ScanLine } from 'lucide-react';
 import { HealthResponse } from '../lib/api';
 
 interface MetricCardsProps {
@@ -49,10 +49,19 @@ export const MetricCards: React.FC<MetricCardsProps> = ({ health }) => {
       borderColor: isOnline ? 'border-indigo-500/30' : 'border-amber-500/30',
       textColor: isOnline ? 'text-indigo-500' : 'text-amber-500',
     },
+    {
+      title: 'DOCUMENTS SCANNED',
+      value: (health?.completed_scans ?? 0) + (health?.pending_scans ?? 0),
+      subtext: health?.scanner?.is_online ? 'SCANNER READY' : 'SCANNER OFFLINE',
+      icon: ScanLine,
+      bgColor: health?.scanner?.is_online ? 'bg-cyan-500/10' : 'bg-slate-500/10',
+      borderColor: health?.scanner?.is_online ? 'border-cyan-500/30' : 'border-slate-500/30',
+      textColor: health?.scanner?.is_online ? 'text-cyan-500' : 'text-slate-500',
+    },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
       {metrics.map((m, idx) => {
         const IconComponent = m.icon;
         return (

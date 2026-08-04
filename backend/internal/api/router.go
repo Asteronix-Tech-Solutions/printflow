@@ -60,6 +60,13 @@ func NewRouter(h *Handler) http.Handler {
 			r.Get("/printer/status", h.GetPrinterStatus)
 			r.Post("/printer/config", h.UpdatePrinterConfig)
 
+			// Scanner endpoints
+			r.Post("/scan", h.StartScan)
+			r.Get("/scan/jobs", h.ListScanJobs)
+			r.Get("/scan/jobs/{id}", h.GetScanJob)
+			r.Get("/scan/jobs/{id}/file", h.DownloadScanFile)
+			r.Get("/scanner/status", h.GetScannerStatus)
+
 			r.Get("/logs", h.ListLogs)
 			r.Get("/events", h.HandleSSE)
 		})

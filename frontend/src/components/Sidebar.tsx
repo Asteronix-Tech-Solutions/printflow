@@ -7,6 +7,7 @@ import {
   Printer,
   LayoutDashboard,
   Activity,
+  ScanLine,
   Settings,
   PlusCircle,
   Menu,
@@ -42,6 +43,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'DASHBOARD',
       href: '/',
       icon: LayoutDashboard,
+    },
+    {
+      label: 'SCANNER',
+      href: '/scan',
+      icon: ScanLine,
     },
     {
       label: 'SYSTEM ACTIVITY',

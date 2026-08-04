@@ -17,6 +17,7 @@ import (
 	"pintflow/backend/internal/logger"
 	"pintflow/backend/internal/printer"
 	"pintflow/backend/internal/queue"
+	"pintflow/backend/internal/scanner"
 	"pintflow/backend/internal/storage"
 )
 
@@ -29,6 +30,7 @@ func main() {
 		fmt.Printf("FATAL: Failed to initialize file storage: %v\n", err)
 		os.Exit(1)
 	}
+	stg.SetScanDir(cfg.ScanDir)
 
 	// Initialize Database
 	db, err := database.Connect(cfg.DatabaseDriver, cfg.DatabaseURL)
@@ -77,6 +79,14 @@ func main() {
 	printerMgr := printer.NewManager(cfg.DefaultPrinter, cfg.PrinterType, cfg.PrinterAddress)
 	log.Info(fmt.Sprintf("Printer driver manager initialized (Name: %s, Type: %s, Address: %s)", cfg.DefaultPrinter, cfg.PrinterType, cfg.PrinterAddress))
 
+	// Initialize Scanner Manager (printer-agnostic)
+	scannerMgr := scanner.NewManager(cfg.ScannerDevice, cfg.ScannerType)
+	log.Info(fmt.Sprintf("Scanner driver manager initialized (Type: %s, Device: %s)", cfg.ScannerType, cfg.ScannerDevice))
+
+	// Start Push-Scan File Watcher (for physical scan button support)
+	pushWatcher := scanner.NewPushScanWatcher(cfg.ScanWatchDir, cfg.ScanDir, db, log, broadcaster)
+	go pushWatcher.Start(ctx)
+
 	// Initialize Worker Queue Pool
 	workerPool := queue.NewWorkerPool(db, driveClient, printerMgr, stg, log, cfg.MaxConcurrentJobs)
 	workerPool.SetBroadcaster(broadcaster)
@@ -84,7 +94,7 @@ func main() {
 	defer workerPool.Stop()
 
 	// Initialize HTTP API Router
-	handler := api.NewHandler(cfg, db, printerMgr, workerPool, stg, log)
+	handler := api.NewHandler(cfg, db, printerMgr, scannerMgr, workerPool, stg, log)
 	handler.SetBroadcaster(broadcaster)
 	router := api.NewRouter(handler)
 
@@ -119,3 +129,4 @@ func main() {
 
 	log.Info("PintFlow server stopped gracefully")
 }
+

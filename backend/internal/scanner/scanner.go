@@ -1,0 +1,126 @@
+package scanner
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"pintflow/backend/internal/models"
+)
+
+// Scanner interface — all scanner drivers must implement this
+type Scanner interface {
+	Name() string
+	Scan(ctx context.Context, opts ScanOptions) ([]byte, error)
+	GetStatus(ctx context.Context) (models.ScannerStatus, error)
+	ListDevices(ctx context.Context) ([]models.ScannerDevice, error)
+}
+
+// ScanOptions holds parameters for a scan operation
+type ScanOptions struct {
+	Resolution int    // DPI: 150, 300, 600 (default 300)
+	ColorMode  string // "Color", "Gray", "Lineart" (default "Color")
+	Format     string // "pdf", "jpeg", "png" (default "pdf")
+	PaperSize  string // "A4", "Letter", "Legal" (default "A4")
+	DeviceName string // optional: target a specific scanner
+	OutputPath string // full path for the output file
+}
+
+// Manager wraps the active scanner driver with thread-safe access
+type Manager struct {
+	mu            sync.RWMutex
+	activeScanner Scanner
+	scannerType   string
+	deviceName    string
+}
+
+// NewManager creates a scanner manager with the specified driver type
+func NewManager(deviceName, scannerType string) *Manager {
+	m := &Manager{
+		scannerType: scannerType,
+		deviceName:  deviceName,
+	}
+	m.activeScanner = m.createDriver(scannerType, deviceName)
+	return m
+}
+
+func (m *Manager) createDriver(sType, deviceName string) Scanner {
+	switch sType {
+	case "sane":
+		return NewSANEScanner(deviceName)
+	default:
+		return NewMockScanner()
+	}
+}
+
+// Scan triggers a scan using the active driver
+func (m *Manager) Scan(ctx context.Context, opts ScanOptions) ([]byte, error) {
+	m.mu.RLock()
+	scn := m.activeScanner
+	m.mu.RUnlock()
+
+	if scn == nil {
+		return nil, fmt.Errorf("no active scanner driver configured")
+	}
+
+	// Apply defaults
+	if opts.Resolution <= 0 {
+		opts.Resolution = 300
+	}
+	if opts.ColorMode == "" {
+		opts.ColorMode = "Color"
+	}
+	if opts.Format == "" {
+		opts.Format = "pdf"
+	}
+	if opts.PaperSize == "" {
+		opts.PaperSize = "A4"
+	}
+
+	return scn.Scan(ctx, opts)
+}
+
+// GetStatus returns the current scanner status
+func (m *Manager) GetStatus(ctx context.Context) (models.ScannerStatus, error) {
+	m.mu.RLock()
+	scn := m.activeScanner
+	m.mu.RUnlock()
+
+	if scn == nil {
+		return models.ScannerStatus{
+			Name:          "None",
+			IsOnline:      false,
+			StatusMessage: "No active scanner configured",
+		}, fmt.Errorf("no active scanner driver")
+	}
+	return scn.GetStatus(ctx)
+}
+
+// ListDevices returns all discovered scanner devices
+func (m *Manager) ListDevices(ctx context.Context) ([]models.ScannerDevice, error) {
+	m.mu.RLock()
+	scn := m.activeScanner
+	m.mu.RUnlock()
+
+	if scn == nil {
+		return nil, fmt.Errorf("no active scanner driver")
+	}
+	return scn.ListDevices(ctx)
+}
+
+// Name returns the active scanner name
+func (m *Manager) Name() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.activeScanner == nil {
+		return "None"
+	}
+	return m.activeScanner.Name()
+}
+
+// GetType returns the scanner driver type
+func (m *Manager) GetType() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.scannerType
+}

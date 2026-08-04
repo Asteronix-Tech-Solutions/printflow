@@ -16,6 +16,7 @@ type Storage struct {
 	TempDir    string
 	ArchiveDir string
 	LogDir     string
+	ScanDir    string
 }
 
 func NewStorage(tempDir, archiveDir, logDir string) (*Storage, error) {
@@ -32,6 +33,17 @@ func NewStorage(tempDir, archiveDir, logDir string) (*Storage, error) {
 	}
 
 	return s, nil
+}
+
+// SetScanDir sets up the scan output directory
+func (s *Storage) SetScanDir(scanDir string) {
+	s.ScanDir = scanDir
+	_ = os.MkdirAll(scanDir, 0755)
+}
+
+// ScanPathForJob returns the full path for a scan output file
+func (s *Storage) ScanPathForJob(scanJobID, filename string) string {
+	return filepath.Join(s.ScanDir, fmt.Sprintf("%s_%s", SanitizeFilename(scanJobID[:8]), SanitizeFilename(filename)))
 }
 
 func SanitizeFilename(filename string) string {
