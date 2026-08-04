@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"pintflow/backend/internal/models"
 )
@@ -18,6 +19,8 @@ type Manager struct {
 	mu            sync.RWMutex
 	activePrinter Printer
 	config        models.PrinterConfig
+	cachedStatus  models.PrinterStatus
+	lastChecked   time.Time
 }
 
 func NewManager(defaultName, defaultType, defaultAddress string) *Manager {
@@ -38,7 +41,7 @@ func (m *Manager) createDriver(name, pType, address string) Printer {
 	switch pType {
 	case "cups":
 		return NewCUPSPrinter(name, address)
-	case "ipp", "raw":
+	case "ipp", "raw", "lpd":
 		return NewNetworkIPPPrinter(name, address)
 	default:
 		return NewMockPrinter(name)
@@ -64,6 +67,7 @@ func (m *Manager) UpdateConfig(cfg models.PrinterConfig) models.PrinterStatus {
 	}
 
 	m.activePrinter = m.createDriver(m.config.Name, m.config.Type, m.config.Address)
+	m.lastChecked = time.Time{} // Invalidate cache
 	m.mu.Unlock()
 
 	status, _ := m.GetStatus(context.Background())
@@ -102,7 +106,7 @@ func (m *Manager) Print(ctx context.Context, filePath string, copies int) error 
 	var fallbackPrinter Printer
 	if cfg.Type == "cups" {
 		fallbackPrinter = NewNetworkIPPPrinter(cfg.Name, cfg.Address)
-	} else if cfg.Type == "ipp" || cfg.Type == "raw" {
+	} else if cfg.Type == "ipp" || cfg.Type == "raw" || cfg.Type == "lpd" {
 		fallbackPrinter = NewCUPSPrinter(cfg.Name, cfg.Address)
 	}
 
@@ -119,8 +123,14 @@ func (m *Manager) Print(ctx context.Context, filePath string, copies int) error 
 
 func (m *Manager) GetStatus(ctx context.Context) (models.PrinterStatus, error) {
 	m.mu.RLock()
+	if time.Since(m.lastChecked) < 10*time.Second && m.cachedStatus.Name != "" {
+		status := m.cachedStatus
+		m.mu.RUnlock()
+		return status, nil
+	}
 	prn := m.activePrinter
 	m.mu.RUnlock()
+
 	if prn == nil {
 		return models.PrinterStatus{
 			Name:          "None",
@@ -128,5 +138,25 @@ func (m *Manager) GetStatus(ctx context.Context) (models.PrinterStatus, error) {
 			StatusMessage: "No active printer configured",
 		}, fmt.Errorf("no active printer driver")
 	}
-	return prn.GetStatus(ctx)
+
+	// Fetch status with a max timeout context of 2.5s if ctx has no tighter deadline
+	reqCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancel()
+
+	status, err := prn.GetStatus(reqCtx)
+
+	m.mu.Lock()
+	m.cachedStatus = status
+	m.lastChecked = time.Now()
+	m.mu.Unlock()
+
+	return status, err
+}
+
+func (m *Manager) DiscoverPrinters(ctx context.Context) ([]models.DiscoveredPrinter, error) {
+	m.mu.RLock()
+	configuredAddr := m.config.Address
+	m.mu.RUnlock()
+
+	return DiscoverPrinters(ctx, configuredAddr)
 }

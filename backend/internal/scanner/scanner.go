@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"pintflow/backend/internal/models"
 )
@@ -33,6 +34,8 @@ type Manager struct {
 	activeScanner Scanner
 	scannerType   string
 	deviceName    string
+	cachedStatus  models.ScannerStatus
+	lastChecked   time.Time
 }
 
 // NewManager creates a scanner manager with the specified driver type
@@ -87,6 +90,11 @@ func (m *Manager) Scan(ctx context.Context, opts ScanOptions) ([]byte, error) {
 // GetStatus returns the current scanner status
 func (m *Manager) GetStatus(ctx context.Context) (models.ScannerStatus, error) {
 	m.mu.RLock()
+	if time.Since(m.lastChecked) < 10*time.Second && m.cachedStatus.Name != "" {
+		status := m.cachedStatus
+		m.mu.RUnlock()
+		return status, nil
+	}
 	scn := m.activeScanner
 	m.mu.RUnlock()
 
@@ -97,19 +105,39 @@ func (m *Manager) GetStatus(ctx context.Context) (models.ScannerStatus, error) {
 			StatusMessage: "No active scanner configured",
 		}, fmt.Errorf("no active scanner driver")
 	}
-	return scn.GetStatus(ctx)
+
+	reqCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancel()
+
+	status, err := scn.GetStatus(reqCtx)
+
+	m.mu.Lock()
+	m.cachedStatus = status
+	m.lastChecked = time.Now()
+	m.mu.Unlock()
+
+	return status, err
 }
 
 // ListDevices returns all discovered scanner devices
 func (m *Manager) ListDevices(ctx context.Context) ([]models.ScannerDevice, error) {
 	m.mu.RLock()
+	if time.Since(m.lastChecked) < 10*time.Second && len(m.cachedStatus.Devices) > 0 {
+		devs := m.cachedStatus.Devices
+		m.mu.RUnlock()
+		return devs, nil
+	}
 	scn := m.activeScanner
 	m.mu.RUnlock()
 
 	if scn == nil {
 		return nil, fmt.Errorf("no active scanner driver")
 	}
-	return scn.ListDevices(ctx)
+
+	reqCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancel()
+
+	return scn.ListDevices(reqCtx)
 }
 
 // Name returns the active scanner name
@@ -128,3 +156,4 @@ func (m *Manager) GetType() string {
 	defer m.mu.RUnlock()
 	return m.scannerType
 }
+

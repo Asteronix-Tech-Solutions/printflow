@@ -424,6 +424,23 @@ func (h *Handler) UpdatePrinterConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) DiscoverPrinters(w http.ResponseWriter, r *http.Request) {
+	printers, err := h.printer.DiscoverPrinters(r.Context())
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"discovered": printers,
+		"count":      len(printers),
+	})
+}
+
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
 	limit := 100
@@ -954,8 +971,10 @@ func (h *Handler) GetScannerStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status, _ := h.scanner.GetStatus(r.Context())
-	devices, _ := h.scanner.ListDevices(r.Context())
-	status.Devices = devices
+	if len(status.Devices) == 0 {
+		devices, _ := h.scanner.ListDevices(r.Context())
+		status.Devices = devices
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

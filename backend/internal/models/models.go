@@ -143,8 +143,22 @@ type PrinterStatus struct {
 	Address       string    `json:"address"`
 	IsOnline      bool      `json:"is_online"`
 	StatusMessage string    `json:"status_message"`
+	ResolvedPort  string    `json:"resolved_port,omitempty"`
+	Protocol      string    `json:"protocol,omitempty"`
+	StateReasons  []string  `json:"state_reasons,omitempty"`
 	CheckedAt     time.Time `json:"checked_at"`
 }
+
+// DiscoveredPrinter represents a printer detected on the local network
+type DiscoveredPrinter struct {
+	IP        string `json:"ip"`
+	Hostname  string `json:"hostname,omitempty"`
+	Port      string `json:"port"`
+	Protocol  string `json:"protocol"`
+	Name      string `json:"name"`
+	IsOnline  bool   `json:"is_online"`
+}
+
 
 // Scan job statuses
 const (

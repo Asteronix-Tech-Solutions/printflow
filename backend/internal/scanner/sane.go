@@ -35,7 +35,10 @@ func (s *SANEScanner) Name() string {
 func (s *SANEScanner) ListDevices(ctx context.Context) ([]models.ScannerDevice, error) {
 	var devices []models.ScannerDevice
 
-	cmd := exec.CommandContext(ctx, "scanimage", "-L")
+	cmdCtx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, "scanimage", "-L")
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		lines := strings.Split(string(output), "\n")

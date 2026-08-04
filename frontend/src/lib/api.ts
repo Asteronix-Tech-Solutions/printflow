@@ -47,7 +47,19 @@ export interface PrinterStatus {
   address: string;
   is_online: boolean;
   status_message: string;
+  resolved_port?: string;
+  protocol?: string;
+  state_reasons?: string[];
   checked_at: string;
+}
+
+export interface DiscoveredPrinter {
+  ip: string;
+  hostname?: string;
+  port: string;
+  protocol: string;
+  name: string;
+  is_online: boolean;
 }
 
 export interface PrinterConfig {
@@ -164,6 +176,15 @@ export async function updatePrinterConfig(config: PrinterConfig): Promise<{ succ
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error || 'Failed to update printer config');
+  }
+  return res.json();
+}
+
+export async function discoverPrinters(): Promise<{ success: boolean; discovered: DiscoveredPrinter[]; count: number }> {
+  const res = await fetch(`${API_BASE_URL}/printer/discover`, { headers: getAuthHeaders(), cache: 'no-store' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to discover network printers');
   }
   return res.json();
 }

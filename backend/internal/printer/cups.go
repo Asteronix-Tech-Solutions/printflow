@@ -12,7 +12,6 @@ import (
 	"pintflow/backend/internal/models"
 )
 
-
 type CUPSPrinter struct {
 	name        string
 	printerName string
@@ -20,7 +19,10 @@ type CUPSPrinter struct {
 }
 
 func NewCUPSPrinter(name, address string) *CUPSPrinter {
-	printerName := name
+	printerName := strings.TrimSpace(name)
+	if printerName == "" {
+		printerName = "default"
+	}
 	if address != "" && !strings.Contains(address, ".") && !strings.Contains(address, ":") {
 		printerName = address
 	}
@@ -38,7 +40,7 @@ func (p *CUPSPrinter) Name() string {
 func (p *CUPSPrinter) AutoSyncQueue() {
 	targetIP := strings.TrimSpace(p.address)
 	if targetIP == "" || targetIP == p.name {
-		targetIP = "192.168.1.206"
+		targetIP = "127.0.0.1"
 	}
 	if strings.Contains(targetIP, ":") {
 		host, _, err := net.SplitHostPort(targetIP)
@@ -80,31 +82,41 @@ func (p *CUPSPrinter) Print(ctx context.Context, filePath string, copies int) er
 }
 
 func (p *CUPSPrinter) GetStatus(ctx context.Context) (models.PrinterStatus, error) {
-	cmd := exec.CommandContext(ctx, "lpstat", "-p", p.printerName)
+	cmdCtx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+	defer cancel()
+
+	cmd := exec.CommandContext(cmdCtx, "lpstat", "-p", p.printerName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		p.AutoSyncQueue()
-		cmd2 := exec.CommandContext(ctx, "lpstat", "-p", p.printerName)
+		cmd2 := exec.CommandContext(cmdCtx, "lpstat", "-p", p.printerName)
 		output2, err2 := cmd2.CombinedOutput()
 		if err2 != nil {
 			return models.PrinterStatus{
 				Name:          p.name,
 				Type:          "CUPS (lp)",
 				Address:       p.printerName,
+				ResolvedPort:  p.printerName,
+				Protocol:      "CUPS Daemon",
 				IsOnline:      false,
-				StatusMessage: fmt.Sprintf("CUPS printer unavailable: %s", string(output)),
+				StatusMessage: fmt.Sprintf("CUPS printer unavailable: %s", strings.TrimSpace(string(output))),
+				StateReasons:  []string{"unavailable"},
 				CheckedAt:     time.Now(),
 			}, nil
 		}
 		output = output2
 	}
 
+	msg := strings.TrimSpace(string(output))
 	return models.PrinterStatus{
 		Name:          p.name,
 		Type:          "CUPS (lp)",
 		Address:       p.printerName,
+		ResolvedPort:  p.printerName,
+		Protocol:      "CUPS Daemon",
 		IsOnline:      true,
-		StatusMessage: fmt.Sprintf("Online: %s", string(output)),
+		StatusMessage: fmt.Sprintf("Online: %s", msg),
+		StateReasons:  []string{"idle"},
 		CheckedAt:     time.Now(),
 	}, nil
 }
