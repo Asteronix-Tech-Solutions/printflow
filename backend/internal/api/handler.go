@@ -158,7 +158,7 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 			if fileEntry.FileData == "" {
 				continue
 			}
-			rawBytes, err := base64.StdEncoding.DecodeString(cleanBase64(fileEntry.FileData))
+			rawBytes, err := decodeBase64Flex(fileEntry.FileData)
 			if err == nil && len(rawBytes) > 0 {
 				fileName := fileEntry.FileName
 				if fileName == "" {
@@ -176,7 +176,7 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else if payload.FileData != "" {
-		rawBytes, err := base64.StdEncoding.DecodeString(cleanBase64(payload.FileData))
+		rawBytes, err := decodeBase64Flex(payload.FileData)
 		if err == nil && len(rawBytes) > 0 {
 			tempPath := h.storage.TempPathForJob(job.ID, payload.Filename)
 			if err := os.WriteFile(tempPath, rawBytes, 0644); err == nil {
@@ -292,13 +292,19 @@ func (h *Handler) ManualQueueJob(w http.ResponseWriter, r *http.Request) {
 
 	// Handle base64 encoded file data if uploaded directly via WebApp
 	if payload.FileData != "" {
-		rawBytes, err := base64.StdEncoding.DecodeString(cleanBase64(payload.FileData))
-		if err == nil && len(rawBytes) > 0 {
-			tempPath := h.storage.TempPathForJob(jobID, payload.Filename)
-			if err := os.WriteFile(tempPath, rawBytes, 0644); err == nil {
-				job.GoogleFileID = "" // clear drive ID since file is local
-			}
+		rawBytes, err := decodeBase64Flex(payload.FileData)
+		if err != nil {
+			h.logger.Error(fmt.Sprintf("Failed to decode base64 file data for job %s: %v", jobID, err))
+			http.Error(w, fmt.Sprintf(`{"error":"invalid base64 file data: %v"}`, err), http.StatusBadRequest)
+			return
 		}
+		tempPath := h.storage.TempPathForJob(jobID, payload.Filename)
+		if err := os.WriteFile(tempPath, rawBytes, 0644); err != nil {
+			h.logger.Error(fmt.Sprintf("Failed to save uploaded file for job %s: %v", jobID, err))
+			http.Error(w, fmt.Sprintf(`{"error":"failed to save uploaded file: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+		job.GoogleFileID = "" // clear drive ID since file is local
 	}
 
 	if err := h.db.CreateJob(job); err != nil {
@@ -466,6 +472,28 @@ func cleanBase64(input string) string {
 		return input[idx+1:]
 	}
 	return input
+}
+
+func decodeBase64Flex(input string) ([]byte, error) {
+	cleaned := cleanBase64(input)
+	cleaned = strings.ReplaceAll(cleaned, "\r", "")
+	cleaned = strings.ReplaceAll(cleaned, "\n", "")
+	cleaned = strings.ReplaceAll(cleaned, " ", "+")
+
+	// Try standard encoding
+	if b, err := base64.StdEncoding.DecodeString(cleaned); err == nil && len(b) > 0 {
+		return b, nil
+	}
+	// Try URL encoding
+	if b, err := base64.URLEncoding.DecodeString(cleaned); err == nil && len(b) > 0 {
+		return b, nil
+	}
+	// Try raw standard encoding
+	if b, err := base64.RawStdEncoding.DecodeString(cleaned); err == nil && len(b) > 0 {
+		return b, nil
+	}
+	// Try raw URL encoding
+	return base64.RawURLEncoding.DecodeString(cleaned)
 }
 
 func (h *Handler) ListTemplates(w http.ResponseWriter, r *http.Request) {

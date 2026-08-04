@@ -167,9 +167,15 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 			_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
 			return
 		}
-	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) || len(job.FormResponses) > 0 || job.FormTitle != "" {
-		_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
-		wp.logger.InfoJ(job.ID, "Job completed successfully (Combined Form Details & Embedded Photo ID printed!)")
+	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) {
+		if len(job.FormResponses) > 0 || job.FormTitle != "" {
+			_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
+			wp.logger.InfoJ(job.ID, "Job completed successfully (Form summary document printed!)")
+			return
+		}
+		errMsg := "Print job failed: No printable document file found on server"
+		wp.logger.ErrorJ(job.ID, errMsg)
+		_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
 		return
 	}
 

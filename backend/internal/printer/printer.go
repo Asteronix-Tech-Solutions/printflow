@@ -85,8 +85,36 @@ func (m *Manager) Name() string {
 func (m *Manager) Print(ctx context.Context, filePath string, copies int) error {
 	m.mu.RLock()
 	prn := m.activePrinter
+	cfg := m.config
 	m.mu.RUnlock()
-	return prn.Print(ctx, filePath, copies)
+
+	if prn == nil {
+		return fmt.Errorf("no active printer driver configured")
+	}
+
+	err := prn.Print(ctx, filePath, copies)
+	if err == nil {
+		return nil
+	}
+
+	// GUARDRAIL: Dynamic Driver Fallback
+	// If primary printer driver fails, dynamically attempt printing with alternate driver
+	var fallbackPrinter Printer
+	if cfg.Type == "cups" {
+		fallbackPrinter = NewNetworkIPPPrinter(cfg.Name, cfg.Address)
+	} else if cfg.Type == "ipp" || cfg.Type == "raw" {
+		fallbackPrinter = NewCUPSPrinter(cfg.Name, cfg.Address)
+	}
+
+	if fallbackPrinter != nil {
+		fallbackErr := fallbackPrinter.Print(ctx, filePath, copies)
+		if fallbackErr == nil {
+			return nil
+		}
+		return fmt.Errorf("primary driver '%s' failed: %v; fallback driver failed: %w", cfg.Type, err, fallbackErr)
+	}
+
+	return err
 }
 
 func (m *Manager) GetStatus(ctx context.Context) (models.PrinterStatus, error) {
