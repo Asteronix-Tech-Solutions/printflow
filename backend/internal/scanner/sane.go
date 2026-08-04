@@ -33,23 +33,41 @@ func (s *SANEScanner) Name() string {
 
 // ListDevices discovers all connected scanners via `scanimage -L`
 func (s *SANEScanner) ListDevices(ctx context.Context) ([]models.ScannerDevice, error) {
+	var devices []models.ScannerDevice
+
 	cmd := exec.CommandContext(ctx, "scanimage", "-L")
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("scanimage -L failed: %w (output: %s)", err, string(output))
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, "device") {
+				continue
+			}
+			dev := parseDeviceLine(line)
+			if dev.DeviceName != "" {
+				devices = append(devices, dev)
+			}
+		}
 	}
 
-	var devices []models.ScannerDevice
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "device") {
-			continue
+	// If a specific scanner IP/device is configured, ensure it is included
+	if s.deviceName != "" {
+		configuredDev := s.resolveDevice(ctx, s.deviceName)
+		found := false
+		for _, d := range devices {
+			if d.DeviceName == configuredDev || d.DeviceName == s.deviceName {
+				found = true
+				break
+			}
 		}
-		// Format: device `brother4:net1;dev0' is a Brother DCP-T430W flatbed scanner
-		dev := parseDeviceLine(line)
-		if dev.DeviceName != "" {
-			devices = append(devices, dev)
+		if !found {
+			devices = append(devices, models.ScannerDevice{
+				DeviceName: configuredDev,
+				Vendor:     "Network Scanner",
+				Model:      s.deviceName,
+				Type:       "eSCL / SANE Network Device",
+			})
 		}
 	}
 
@@ -89,11 +107,18 @@ func parseDeviceLine(line string) models.ScannerDevice {
 
 // resolveDevice determines which device to use for scanning
 func (s *SANEScanner) resolveDevice(ctx context.Context, requestedDevice string) string {
-	if requestedDevice != "" {
-		return requestedDevice
+	dev := requestedDevice
+	if dev == "" {
+		dev = strings.TrimSpace(s.deviceName)
 	}
-	if s.deviceName != "" {
-		return s.deviceName
+
+	// If device looks like an IP address (e.g. 192.168.1.19), convert to eSCL / network device URI
+	if dev != "" && (strings.Contains(dev, ".") || strings.Contains(dev, ":")) && !strings.Contains(dev, ":/") {
+		return fmt.Sprintf("escl:http://%s:80/", dev)
+	}
+
+	if dev != "" {
+		return dev
 	}
 
 	// Auto-detect first available device
@@ -123,6 +148,13 @@ func (s *SANEScanner) Scan(ctx context.Context, opts ScanOptions) ([]byte, error
 	}
 	args = append(args, fmt.Sprintf("--resolution=%d", opts.Resolution))
 
+	// Source parameter (Flatbed / ADF)
+	source := opts.Source
+	if source == "" {
+		source = "Flatbed"
+	}
+	args = append(args, "--source="+source)
+
 	// Map color mode to SANE mode names
 	mode := "Color"
 	switch strings.ToLower(opts.ColorMode) {
@@ -145,7 +177,34 @@ func (s *SANEScanner) Scan(ctx context.Context, opts ScanOptions) ([]byte, error
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("scanimage failed: %w (stderr: %s)", err, stderr.String())
+		errStr := stderr.String()
+
+		// Guardrail: If ADF is out of documents or source is rejected, auto-fallback to Flatbed
+		if strings.Contains(errStr, "feeder out of documents") || strings.Contains(errStr, "Document feeder") || strings.Contains(errStr, "Invalid source") || strings.Contains(errStr, "source") {
+			fallbackArgs := make([]string, 0, len(args))
+			for _, arg := range args {
+				if !strings.HasPrefix(arg, "--source=") {
+					fallbackArgs = append(fallbackArgs, arg)
+				}
+			}
+			if source != "Flatbed" {
+				fallbackArgs = append(fallbackArgs, "--source=Flatbed")
+			}
+
+			cmdFallback := exec.CommandContext(ctx, "scanimage", fallbackArgs...)
+			var stdoutFallback, stderrFallback bytes.Buffer
+			cmdFallback.Stdout = &stdoutFallback
+			cmdFallback.Stderr = &stderrFallback
+
+			if errFallback := cmdFallback.Run(); errFallback == nil {
+				stdout = stdoutFallback
+				stderr = stderrFallback
+			} else {
+				return nil, fmt.Errorf("scanimage failed: %w (stderr: %s; fallback: %s)", err, errStr, stderrFallback.String())
+			}
+		} else {
+			return nil, fmt.Errorf("scanimage failed: %w (stderr: %s)", err, errStr)
+		}
 	}
 
 	scannedBytes := stdout.Bytes()
@@ -214,7 +273,7 @@ func convertToPDF(ctx context.Context, imageBytes []byte, outputPath string) ([]
 
 // GetStatus checks if any scanner is available via SANE
 func (s *SANEScanner) GetStatus(ctx context.Context) (models.ScannerStatus, error) {
-	devices, err := s.ListDevices(ctx)
+	devices, _ := s.ListDevices(ctx)
 
 	status := models.ScannerStatus{
 		Name:      s.Name(),
@@ -223,16 +282,13 @@ func (s *SANEScanner) GetStatus(ctx context.Context) (models.ScannerStatus, erro
 		CheckedAt: time.Now(),
 	}
 
-	if err != nil || len(devices) == 0 {
+	if len(devices) == 0 {
 		status.IsOnline = false
 		status.StatusMessage = "No scanners detected"
-		if err != nil {
-			status.StatusMessage = fmt.Sprintf("Scanner detection failed: %v", err)
-		}
 		return status, nil
 	}
 
 	status.IsOnline = true
-	status.StatusMessage = fmt.Sprintf("%d scanner(s) detected and ready", len(devices))
+	status.StatusMessage = fmt.Sprintf("%d scanner(s) available and ready", len(devices))
 	return status, nil
 }

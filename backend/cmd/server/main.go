@@ -80,8 +80,12 @@ func main() {
 	log.Info(fmt.Sprintf("Printer driver manager initialized (Name: %s, Type: %s, Address: %s)", cfg.DefaultPrinter, cfg.PrinterType, cfg.PrinterAddress))
 
 	// Initialize Scanner Manager (printer-agnostic)
-	scannerMgr := scanner.NewManager(cfg.ScannerDevice, cfg.ScannerType)
-	log.Info(fmt.Sprintf("Scanner driver manager initialized (Type: %s, Device: %s)", cfg.ScannerType, cfg.ScannerDevice))
+	scannerDev := cfg.ScannerDevice
+	if scannerDev == "" {
+		scannerDev = cfg.PrinterAddress
+	}
+	scannerMgr := scanner.NewManager(scannerDev, cfg.ScannerType)
+	log.Info(fmt.Sprintf("Scanner driver manager initialized (Type: %s, Device: %s)", cfg.ScannerType, scannerDev))
 
 	// Start Push-Scan File Watcher (for physical scan button support)
 	pushWatcher := scanner.NewPushScanWatcher(cfg.ScanWatchDir, cfg.ScanDir, db, log, broadcaster)

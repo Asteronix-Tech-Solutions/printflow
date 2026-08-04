@@ -92,6 +92,7 @@ export interface ScanRequest {
   color_mode?: string;
   format?: string;
   paper_size?: string;
+  scan_source?: string;
   device_name?: string;
   user_name?: string;
 }

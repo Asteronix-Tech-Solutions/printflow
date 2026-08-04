@@ -84,8 +84,14 @@ func Load() *Config {
 }
 
 func getEnv(key, fallback string) string {
-	if val, ok := os.LookupEnv(key); ok && val != "" {
-		return val
+	if val, ok := os.LookupEnv(key); ok {
+		if idx := strings.Index(val, "#"); idx != -1 {
+			val = val[:idx]
+		}
+		val = strings.TrimSpace(val)
+		if val != "" {
+			return val
+		}
 	}
 	return fallback
 }

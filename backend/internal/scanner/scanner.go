@@ -22,6 +22,7 @@ type ScanOptions struct {
 	ColorMode  string // "Color", "Gray", "Lineart" (default "Color")
 	Format     string // "pdf", "jpeg", "png" (default "pdf")
 	PaperSize  string // "A4", "Letter", "Legal" (default "A4")
+	Source     string // "Flatbed", "ADF" (default "Flatbed")
 	DeviceName string // optional: target a specific scanner
 	OutputPath string // full path for the output file
 }
@@ -75,6 +76,9 @@ func (m *Manager) Scan(ctx context.Context, opts ScanOptions) ([]byte, error) {
 	}
 	if opts.PaperSize == "" {
 		opts.PaperSize = "A4"
+	}
+	if opts.Source == "" {
+		opts.Source = "Flatbed"
 	}
 
 	return scn.Scan(ctx, opts)

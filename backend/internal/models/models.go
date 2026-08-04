@@ -197,6 +197,7 @@ type ScanRequest struct {
 	ColorMode  string `json:"color_mode,omitempty"`
 	Format     string `json:"format,omitempty"`
 	PaperSize  string `json:"paper_size,omitempty"`
+	Source     string `json:"source,omitempty"` // "Flatbed" or "ADF"
 	DeviceName string `json:"device_name,omitempty"`
 	UserName   string `json:"user_name,omitempty"`
 }

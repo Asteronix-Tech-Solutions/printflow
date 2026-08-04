@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -830,11 +831,15 @@ func (h *Handler) StartScan(w http.ResponseWriter, r *http.Request) {
 			ColorMode:  req.ColorMode,
 			Format:     req.Format,
 			PaperSize:  req.PaperSize,
+			Source:     req.Source,
 			DeviceName: req.DeviceName,
 			OutputPath: outputPath,
 		}
 
-		scannedBytes, err := h.scanner.Scan(r.Context(), opts)
+		scanCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		scannedBytes, err := h.scanner.Scan(scanCtx, opts)
 		if err != nil {
 			errMsg := fmt.Sprintf("Scan failed: %v", err)
 			h.logger.Error(errMsg)

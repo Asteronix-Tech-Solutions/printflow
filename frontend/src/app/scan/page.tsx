@@ -40,6 +40,7 @@ export default function ScanPage() {
   const [colorMode, setColorMode] = useState('Color');
   const [format, setFormat] = useState('pdf');
   const [paperSize, setPaperSize] = useState('A4');
+  const [scanSource, setScanSource] = useState('Flatbed');
   const [scanning, setScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export default function ScanPage() {
         color_mode: colorMode,
         format,
         paper_size: paperSize,
+        scan_source: scanSource,
       });
       setScanSuccess(`Scan started! Job ID: ${result.scan_id.slice(0, 8)}...`);
       setTimeout(() => setScanSuccess(null), 4000);
@@ -195,7 +197,7 @@ export default function ScanPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
                 {/* Resolution */}
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mb-1.5 tracking-wider">Resolution</label>
@@ -235,6 +237,19 @@ export default function ScanPage() {
                     <option value="pdf">PDF</option>
                     <option value="jpeg">JPEG</option>
                     <option value="png">PNG</option>
+                  </select>
+                </div>
+
+                {/* Paper Source */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mb-1.5 tracking-wider">Paper Source</label>
+                  <select
+                    value={scanSource}
+                    onChange={(e) => setScanSource(e.target.value)}
+                    className="w-full theme-input rounded-none p-2 text-xs font-semibold"
+                  >
+                    <option value="Flatbed">Flatbed Glass</option>
+                    <option value="ADF">Document Feeder (ADF)</option>
                   </select>
                 </div>
 
