@@ -18,6 +18,9 @@ services:
       retries: 5
 
   backend:
+    build:
+      context: ./backend
+      dockerfile: ../Dockerfile.backend
     image: ghcr.io/${GH_OWNER:-asteronix-tech-solutions}/pintflow-backend:latest
     container_name: pintflow_backend
     restart: always

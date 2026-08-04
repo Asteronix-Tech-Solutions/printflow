@@ -46,8 +46,8 @@ func (p *CUPSPrinter) AutoSyncQueue() {
 			targetIP = host
 		}
 	}
-	// Synchronize CUPS queue URI to LPD port 515
-	uri := fmt.Sprintf("lpd://%s/binary_p1", targetIP)
+	// Synchronize CUPS queue URI to IPP port 631
+	uri := fmt.Sprintf("ipp://%s:631/ipp/print", targetIP)
 	cmd := exec.Command("lpadmin", "-p", p.printerName, "-v", uri, "-E")
 	_ = cmd.Run()
 }
