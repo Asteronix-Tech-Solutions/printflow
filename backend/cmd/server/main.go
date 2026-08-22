@@ -58,6 +58,7 @@ func main() {
 	pName, _ := db.GetSetting("printer_name")
 	pType, _ := db.GetSetting("printer_type")
 	pAddress, _ := db.GetSetting("printer_address")
+	sDev, _ := db.GetSetting("scanner_device")
 	if pName != "" {
 		cfg.DefaultPrinter = pName
 	}
@@ -66,6 +67,9 @@ func main() {
 	}
 	if pAddress != "" {
 		cfg.PrinterAddress = pAddress
+	}
+	if sDev != "" {
+		cfg.ScannerDevice = sDev
 	}
 
 	// Initialize Google Drive API v3 Client
@@ -79,13 +83,14 @@ func main() {
 	printerMgr := printer.NewManager(cfg.DefaultPrinter, cfg.PrinterType, cfg.PrinterAddress)
 	log.Info(fmt.Sprintf("Printer driver manager initialized (Name: %s, Type: %s, Address: %s)", cfg.DefaultPrinter, cfg.PrinterType, cfg.PrinterAddress))
 
-	// Initialize Scanner Manager (printer-agnostic)
+	// Initialize Scanner Manager (centralized with Printer IP)
 	scannerDev := cfg.ScannerDevice
 	if scannerDev == "" {
 		scannerDev = cfg.PrinterAddress
 	}
-	scannerMgr := scanner.NewManager(scannerDev, cfg.ScannerType)
-	log.Info(fmt.Sprintf("Scanner driver manager initialized (Type: %s, Device: %s)", cfg.ScannerType, scannerDev))
+	targetHostIP := scanner.ExtractHostIP(scannerDev)
+	scannerMgr := scanner.NewManager(targetHostIP, cfg.ScannerType)
+	log.Info(fmt.Sprintf("Scanner driver manager initialized (Type: %s, Target Host IP: %s)", cfg.ScannerType, targetHostIP))
 
 	// Start Push-Scan File Watcher (for physical scan button support)
 	pushWatcher := scanner.NewPushScanWatcher(cfg.ScanWatchDir, cfg.ScanDir, db, log, broadcaster)

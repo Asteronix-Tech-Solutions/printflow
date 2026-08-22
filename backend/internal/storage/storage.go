@@ -131,3 +131,64 @@ func (s *Storage) RemoveTemp(filePath string) {
 		_ = os.Remove(filePath)
 	}
 }
+
+// FindArchivedFile searches for an archived job file in ArchiveDir subdirectories
+func (s *Storage) FindArchivedFile(jobID, filename string) string {
+	if jobID == "" {
+		return ""
+	}
+	cleanJobID := SanitizeFilename(jobID)
+	cleanFilename := SanitizeFilename(filename)
+	expectedName := fmt.Sprintf("%s_%s", cleanJobID, cleanFilename)
+
+	// 1. Direct check in today's archive path
+	todayPath := s.ArchivePath(jobID, filename)
+	if _, err := os.Stat(todayPath); err == nil {
+		return todayPath
+	}
+
+	// 2. Search recursively inside ArchiveDir for matching job file
+	var foundPath string
+	_ = filepath.Walk(s.ArchiveDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		base := info.Name()
+		if base == expectedName || strings.HasPrefix(base, cleanJobID+"_") {
+			foundPath = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+
+	return foundPath
+}
+
+// RestoreFromArchive copies an archived file back to destTempPath for re-printing
+func (s *Storage) RestoreFromArchive(jobID, filename, destTempPath string) (string, error) {
+	archivedPath := s.FindArchivedFile(jobID, filename)
+	if archivedPath == "" {
+		return "", fmt.Errorf("archived file for job %s (%s) not found in archive storage", jobID, filename)
+	}
+
+	_ = os.MkdirAll(filepath.Dir(destTempPath), 0755)
+
+	srcFile, err := os.Open(archivedPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open archived file: %w", err)
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create(destTempPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create target temp file for restore: %w", err)
+	}
+	defer destFile.Close()
+
+	if _, err := io.Copy(destFile, srcFile); err != nil {
+		return "", fmt.Errorf("failed to restore file content from archive: %w", err)
+	}
+
+	return destTempPath, nil
+}
+

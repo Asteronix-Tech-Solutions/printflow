@@ -199,6 +199,7 @@ type ScannerDevice struct {
 type ScannerStatus struct {
 	Name          string          `json:"name"`
 	Type          string          `json:"type"`
+	TargetIP      string          `json:"target_ip,omitempty"`
 	IsOnline      bool            `json:"is_online"`
 	StatusMessage string          `json:"status_message"`
 	Devices       []ScannerDevice `json:"devices"`

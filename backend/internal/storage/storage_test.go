@@ -51,4 +51,21 @@ func TestStorageManager(t *testing.T) {
 	if _, err := os.Stat(testFile); !os.IsNotExist(err) {
 		t.Errorf("Expected temp file to be removed after archiving")
 	}
+
+	// Test FindArchivedFile & RestoreFromArchive for Reprint
+	foundArchived := stg.FindArchivedFile("job_123", "test_doc.txt")
+	if foundArchived == "" {
+		t.Errorf("Expected FindArchivedFile to find archived job file")
+	}
+
+	restoredTempFile := filepath.Join(tempDir, "restored_test_doc.txt")
+	restoredPath, err := stg.RestoreFromArchive("job_123", "test_doc.txt", restoredTempFile)
+	if err != nil {
+		t.Fatalf("Failed to restore file from archive: %v", err)
+	}
+
+	restoredContent, err := os.ReadFile(restoredPath)
+	if err != nil || string(restoredContent) != string(content) {
+		t.Errorf("Restored file content mismatch: got %s, expected %s", string(restoredContent), string(content))
+	}
 }

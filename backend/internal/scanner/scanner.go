@@ -57,6 +57,29 @@ func (m *Manager) createDriver(sType, deviceName string) Scanner {
 	}
 }
 
+// UpdateConfig dynamically updates the target scanner device and driver type
+func (m *Manager) UpdateConfig(deviceName, scannerType string) models.ScannerStatus {
+	m.mu.Lock()
+	if scannerType != "" {
+		m.scannerType = scannerType
+	}
+	m.deviceName = deviceName
+	m.activeScanner = m.createDriver(m.scannerType, m.deviceName)
+	m.cachedStatus = models.ScannerStatus{}
+	m.lastChecked = time.Time{} // Invalidate cache
+	m.mu.Unlock()
+
+	status, _ := m.GetStatus(context.Background())
+	return status
+}
+
+// GetDeviceName returns the current target device name/IP
+func (m *Manager) GetDeviceName() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.deviceName
+}
+
 // Scan triggers a scan using the active driver
 func (m *Manager) Scan(ctx context.Context, opts ScanOptions) ([]byte, error) {
 	m.mu.RLock()
@@ -112,6 +135,7 @@ func (m *Manager) GetStatus(ctx context.Context) (models.ScannerStatus, error) {
 	status, err := scn.GetStatus(reqCtx)
 
 	m.mu.Lock()
+	status.TargetIP = m.deviceName
 	m.cachedStatus = status
 	m.lastChecked = time.Now()
 	m.mu.Unlock()

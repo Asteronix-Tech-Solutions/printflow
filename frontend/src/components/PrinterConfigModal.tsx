@@ -92,7 +92,7 @@ export const PrinterConfigModal: React.FC<PrinterConfigModalProps> = ({ isOpen, 
       });
 
       setTestResult(res.status);
-      setSuccess('Printer settings updated and connected successfully!');
+      setSuccess('Printer & Scanner connection updated and centralized successfully!');
       setTimeout(() => {
         onConfigSaved();
       }, 1200);

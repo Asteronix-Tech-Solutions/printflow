@@ -26,11 +26,13 @@ func NewCUPSPrinter(name, address string) *CUPSPrinter {
 	if address != "" && !strings.Contains(address, ".") && !strings.Contains(address, ":") {
 		printerName = address
 	}
-	return &CUPSPrinter{
+	p := &CUPSPrinter{
 		name:        name,
 		printerName: printerName,
 		address:     address,
 	}
+	p.AutoSyncQueue()
+	return p
 }
 
 func (p *CUPSPrinter) Name() string {

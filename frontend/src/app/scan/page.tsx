@@ -317,6 +317,10 @@ export default function ScanPage() {
                   <span className="font-semibold">{scannerStatus?.name || '—'}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)] font-bold uppercase text-[10px]">Target Host / IP</span>
+                  <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">{scannerStatus?.target_ip || health?.printer?.address || '—'}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-[var(--text-muted)] font-bold uppercase text-[10px]">Driver Type</span>
                   <span className="font-semibold">{scannerStatus?.type || '—'}</span>
                 </div>

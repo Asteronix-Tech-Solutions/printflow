@@ -411,6 +411,19 @@ func (h *Handler) UpdatePrinterConfig(w http.ResponseWriter, r *http.Request) {
 	_ = h.db.SetSetting("printer_address", cfg.Address)
 	_ = h.db.SetSetting("paper_size", cfg.PaperSize)
 
+	// Centralize scanner manager to use the same host IP as the printer
+	if h.scanner != nil && cfg.Address != "" {
+		hostIP := scanner.ExtractHostIP(cfg.Address)
+		if hostIP != "" {
+			scannerStatus := h.scanner.UpdateConfig(hostIP, h.scanner.GetType())
+			_ = h.db.SetSetting("scanner_device", hostIP)
+			h.logger.Info(fmt.Sprintf("Scanner device centralized with Printer IP: %s", hostIP))
+			if h.broadcaster != nil {
+				h.broadcaster.Publish(events.Event{Type: "scan_updated", Data: scannerStatus})
+			}
+		}
+	}
+
 	if h.broadcaster != nil {
 		h.broadcaster.Publish(events.Event{Type: "health_updated", Data: status})
 	}

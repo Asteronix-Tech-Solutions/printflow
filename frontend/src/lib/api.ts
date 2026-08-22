@@ -119,6 +119,7 @@ export interface ScannerDevice {
 export interface ScannerStatus {
   name: string;
   type: string;
+  target_ip?: string;
   is_online: boolean;
   status_message: string;
   devices: ScannerDevice[];

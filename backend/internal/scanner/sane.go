@@ -108,6 +108,43 @@ func parseDeviceLine(line string) models.ScannerDevice {
 	return dev
 }
 
+// ExtractHostIP extracts pure IPv4/IPv6 address or hostname from raw target string (stripping schemes, ports, and paths)
+func ExtractHostIP(address string) string {
+	addr := strings.TrimSpace(address)
+	if addr == "" {
+		return ""
+	}
+
+	// Remove scheme if present (e.g. "ipp://", "http://", "escl:http://")
+	if idx := strings.Index(addr, "://"); idx != -1 {
+		addr = addr[idx+3:]
+	} else if idx := strings.Index(addr, ":/"); idx != -1 {
+		addr = addr[idx+2:]
+	}
+
+	// Remove path if present (e.g. "192.168.1.19:631/ipp/print")
+	if idx := strings.Index(addr, "/"); idx != -1 {
+		addr = addr[:idx]
+	}
+
+	// Handle bracketed IPv6 address e.g. [fe80::1]:80
+	if strings.HasPrefix(addr, "[") {
+		if endIdx := strings.Index(addr, "]"); endIdx != -1 {
+			return addr[1:endIdx]
+		}
+	}
+
+	// Remove port if present (e.g. "192.168.1.19:9100")
+	if idx := strings.LastIndex(addr, ":"); idx != -1 {
+		// Ensure it's not part of an unbracketed IPv6 address
+		if !strings.Contains(addr[:idx], ":") {
+			addr = addr[:idx]
+		}
+	}
+
+	return strings.Trim(addr, "[]")
+}
+
 // resolveDevice determines which device to use for scanning
 func (s *SANEScanner) resolveDevice(ctx context.Context, requestedDevice string) string {
 	dev := requestedDevice
@@ -115,21 +152,29 @@ func (s *SANEScanner) resolveDevice(ctx context.Context, requestedDevice string)
 		dev = strings.TrimSpace(s.deviceName)
 	}
 
-	// If device looks like an IP address (e.g. 192.168.1.19), convert to eSCL / network device URI
-	if dev != "" && (strings.Contains(dev, ".") || strings.Contains(dev, ":")) && !strings.Contains(dev, ":/") {
-		return fmt.Sprintf("escl:http://%s:80/", dev)
+	if dev == "" {
+		// Auto-detect first available device
+		devices, err := s.ListDevices(ctx)
+		if err == nil && len(devices) > 0 {
+			return devices[0].DeviceName
+		}
+		return ""
 	}
 
-	if dev != "" {
+	// If device is already a full SANE/eSCL URI driver string
+	if strings.HasPrefix(dev, "escl:") || strings.HasPrefix(dev, "net:") || strings.HasPrefix(dev, "airscan:") || strings.HasPrefix(dev, "pixma:") || strings.HasPrefix(dev, "hpaio:") {
 		return dev
 	}
 
-	// Auto-detect first available device
-	devices, err := s.ListDevices(ctx)
-	if err == nil && len(devices) > 0 {
-		return devices[0].DeviceName
+	// If device is an IP address or host string (e.g. "192.168.1.19" or "192.168.1.19:9100"), convert to eSCL URI
+	if strings.Contains(dev, ".") || strings.Contains(dev, ":") {
+		hostIP := ExtractHostIP(dev)
+		if hostIP != "" {
+			return fmt.Sprintf("escl:http://%s:80/", hostIP)
+		}
 	}
-	return ""
+
+	return dev
 }
 
 // Scan performs a scan using scanimage CLI

@@ -147,7 +147,10 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 		} else {
 			wp.logger.InfoJ(job.ID, fmt.Sprintf("Sending generated Form PDF document to printer '%s' (Copies: %d)...", wp.printer.Name(), job.Copies))
 			if err := wp.printer.Print(wp.ctx, formSummaryPDFPath, job.Copies); err != nil {
-				wp.logger.WarnJ(job.ID, fmt.Sprintf("Failed printing PDF document: %v", err))
+				errMsg := fmt.Sprintf("Form PDF print failed: %v", err)
+				wp.logger.ErrorJ(job.ID, errMsg)
+				_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
+				return
 			} else {
 				wp.logger.InfoJ(job.ID, "Successfully printed Form PDF document!")
 			}
@@ -155,28 +158,37 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 		}
 	}
 
-	// Step 2: Downloading Attached Document (if Google Drive file)
+	// Step 2: Downloading / Restoring Attached Document
 	_ = wp.updateJobStatus(job.ID, models.StatusDownloading, "")
 	localTempPath := wp.storage.TempPathForJob(job.ID, job.Filename)
 
 	if job.GoogleFileID != "" {
 		wp.logger.InfoJ(job.ID, fmt.Sprintf("Downloading Google Drive File ID: %s", job.GoogleFileID))
 		if err := wp.driveClient.DownloadFile(wp.ctx, job.GoogleFileID, localTempPath); err != nil {
-			errMsg := fmt.Sprintf("Failed to download file from Google Drive: %v", err)
+			// If Drive download fails, check if we can restore from local archive (e.g. reprint)
+			if restoredPath, errRest := wp.storage.RestoreFromArchive(job.ID, job.Filename, localTempPath); errRest == nil {
+				wp.logger.InfoJ(job.ID, fmt.Sprintf("Drive download skipped/failed; restored document from local archive: %s", restoredPath))
+			} else {
+				errMsg := fmt.Sprintf("Failed to download file from Google Drive: %v", err)
+				wp.logger.ErrorJ(job.ID, errMsg)
+				_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
+				return
+			}
+		}
+	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) {
+		// Attempt to restore file from archive if missing from temp (reprint scenario)
+		if restoredPath, errRest := wp.storage.RestoreFromArchive(job.ID, job.Filename, localTempPath); errRest == nil {
+			wp.logger.InfoJ(job.ID, fmt.Sprintf("Restored job document from archive storage for re-printing: %s", restoredPath))
+		} else if len(job.FormResponses) > 0 || job.FormTitle != "" {
+			_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
+			wp.logger.InfoJ(job.ID, "Job completed successfully (Form summary document printed!)")
+			return
+		} else {
+			errMsg := "Print job failed: No printable document file found on server"
 			wp.logger.ErrorJ(job.ID, errMsg)
 			_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
 			return
 		}
-	} else if _, err := os.Stat(localTempPath); os.IsNotExist(err) {
-		if len(job.FormResponses) > 0 || job.FormTitle != "" {
-			_ = wp.updateJobStatus(job.ID, models.StatusCompleted, "")
-			wp.logger.InfoJ(job.ID, "Job completed successfully (Form summary document printed!)")
-			return
-		}
-		errMsg := "Print job failed: No printable document file found on server"
-		wp.logger.ErrorJ(job.ID, errMsg)
-		_ = wp.updateJobStatus(job.ID, models.StatusFailed, errMsg)
-		return
 	}
 
 
