@@ -75,7 +75,7 @@ export default function ScanPage() {
         loadData();
       } else if (evtType === 'health_updated') {
         setSseConnected(true);
-        fetchHealth().then(setHealth).catch(() => {});
+        loadData();
       }
     });
 

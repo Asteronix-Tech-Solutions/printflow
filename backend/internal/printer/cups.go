@@ -97,7 +97,7 @@ func (p *CUPSPrinter) GetStatus(ctx context.Context) (models.PrinterStatus, erro
 			return models.PrinterStatus{
 				Name:          p.name,
 				Type:          "CUPS (lp)",
-				Address:       p.printerName,
+				Address:       p.address,
 				ResolvedPort:  p.printerName,
 				Protocol:      "CUPS Daemon",
 				IsOnline:      false,
@@ -113,7 +113,7 @@ func (p *CUPSPrinter) GetStatus(ctx context.Context) (models.PrinterStatus, erro
 	return models.PrinterStatus{
 		Name:          p.name,
 		Type:          "CUPS (lp)",
-		Address:       p.printerName,
+		Address:       p.address,
 		ResolvedPort:  p.printerName,
 		Protocol:      "CUPS Daemon",
 		IsOnline:      true,
