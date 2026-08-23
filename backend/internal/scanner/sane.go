@@ -218,27 +218,41 @@ func (s *SANEScanner) Scan(ctx context.Context, opts ScanOptions) ([]byte, error
 	if err := cmd.Run(); err != nil {
 		errStr := stderr.String()
 
-		// Guardrail: If ADF is out of documents or source is rejected, auto-fallback to Flatbed
+		// Guardrail: If ADF is out of documents or source is rejected, auto-fallback to Flatbed alternatives
 		if strings.Contains(errStr, "feeder out of documents") || strings.Contains(errStr, "Document feeder") || strings.Contains(errStr, "Invalid source") || strings.Contains(errStr, "source") {
-			fallbackArgs := make([]string, 0, len(args))
-			for _, arg := range args {
-				if !strings.HasPrefix(arg, "--source=") {
-					fallbackArgs = append(fallbackArgs, arg)
+			flatbedSources := []string{"Flatbed", "Platen", "Glass"}
+			var stdoutFallback, stderrFallback bytes.Buffer
+			var errFallback error
+			success := false
+
+			for _, fb := range flatbedSources {
+				if strings.EqualFold(source, fb) { 
+					continue 
+				} // skip what we already tried
+
+				fallbackArgs := make([]string, 0, len(args))
+				for _, arg := range args {
+					if !strings.HasPrefix(arg, "--source=") {
+						fallbackArgs = append(fallbackArgs, arg)
+					}
+				}
+				fallbackArgs = append(fallbackArgs, "--source="+fb)
+
+				cmdFallback := exec.CommandContext(ctx, "scanimage", fallbackArgs...)
+				stdoutFallback.Reset()
+				stderrFallback.Reset()
+				cmdFallback.Stdout = &stdoutFallback
+				cmdFallback.Stderr = &stderrFallback
+
+				if errFallback = cmdFallback.Run(); errFallback == nil {
+					stdout = stdoutFallback
+					stderr = stderrFallback
+					success = true
+					break
 				}
 			}
-			if source != "Flatbed" {
-				fallbackArgs = append(fallbackArgs, "--source=Flatbed")
-			}
 
-			cmdFallback := exec.CommandContext(ctx, "scanimage", fallbackArgs...)
-			var stdoutFallback, stderrFallback bytes.Buffer
-			cmdFallback.Stdout = &stdoutFallback
-			cmdFallback.Stderr = &stderrFallback
-
-			if errFallback := cmdFallback.Run(); errFallback == nil {
-				stdout = stdoutFallback
-				stderr = stderrFallback
-			} else {
+			if !success {
 				return nil, fmt.Errorf("scanimage failed: %w (stderr: %s; fallback: %s)", err, errStr, stderrFallback.String())
 			}
 		} else {
