@@ -1,0 +1,8 @@
+server
+*.exe
+*.test
+*.out
+*.prof
+storage/
+.git/
+.gitignore

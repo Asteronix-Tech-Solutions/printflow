@@ -68,7 +68,7 @@ func Load() *Config {
 		RateLimitRPS:          float64(getEnvAsInt("RATE_LIMIT_RPS", 50)),
 		RateLimitBurst:        getEnvAsInt("RATE_LIMIT_BURST", 100),
 		DefaultPrinter:        getEnv("DEFAULT_PRINTER", "Brother_DCP_T430W"),
-		PrinterType:           getEnv("PRINTER_TYPE", "mock"),
+		PrinterType:           validatePrinterType(getEnv("PRINTER_TYPE", "cups")),
 		PrinterAddress:        getEnv("PRINTER_ADDRESS", "192.168.1.100:9100"),
 		GoogleCredentialsFile: getEnv("GOOGLE_CREDENTIALS_FILE", "storage/credentials.json"),
 		GoogleAPIKey:          getEnv("GOOGLE_API_KEY", ""),
@@ -76,7 +76,7 @@ func Load() *Config {
 		ArchiveDir:            getEnv("ARCHIVE_DIR", "storage/archive"),
 		LogDir:                getEnv("LOG_DIR", "storage/logs"),
 		MaxConcurrentJobs:     getEnvAsInt("MAX_CONCURRENT_JOBS", 3),
-		ScannerType:           getEnv("SCANNER_TYPE", "mock"),
+		ScannerType:           validateScannerType(getEnv("SCANNER_TYPE", "sane")),
 		ScannerDevice:         getEnv("SCANNER_DEVICE", ""),
 		ScanDir:               getEnv("SCAN_DIR", "storage/scans"),
 		ScanWatchDir:          getEnv("SCAN_WATCH_DIR", "storage/scans/inbox"),
@@ -102,4 +102,24 @@ func getEnvAsInt(key string, fallback int) int {
 		return val
 	}
 	return fallback
+}
+
+// validatePrinterType ensures only allowed printer driver types are used
+func validatePrinterType(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "cups", "ipp", "raw", "lpd":
+		return strings.ToLower(strings.TrimSpace(t))
+	default:
+		return "cups"
+	}
+}
+
+// validateScannerType ensures only allowed scanner driver types are used
+func validateScannerType(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "sane":
+		return "sane"
+	default:
+		return "sane"
+	}
 }

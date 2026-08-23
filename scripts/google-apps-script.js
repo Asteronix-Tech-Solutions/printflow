@@ -3,8 +3,8 @@
  */
 
 // CONFIGURATION
-var WEBHOOK_URL = "https://localhost:8080/api/v1/webhook";
-var WEBHOOK_SECRET = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+var WEBHOOK_URL = "YOUR_SERVER_URL/api/v1/webhook";
+var WEBHOOK_SECRET = "YOUR_WEBHOOK_SECRET";
 
 function onFormSubmit(e) {
   if (!e) {

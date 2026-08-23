@@ -61,8 +61,6 @@ func Connect(driverName, connStr string) (*DB, error) {
 		return nil, fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
-	_ = database.ResetInterruptedJobs()
-
 	return database, nil
 }
 
@@ -73,6 +71,7 @@ func (db *DB) Migrate() error {
 	}
 
 	queries := []string{
+		`CREATE TABLE IF NOT EXISTS schema_version (version INT PRIMARY KEY);`,
 		`CREATE TABLE IF NOT EXISTS jobs (
 			id VARCHAR(36) PRIMARY KEY,
 			status VARCHAR(32) NOT NULL DEFAULT 'pending',
@@ -140,6 +139,15 @@ func (db *DB) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_scan_jobs_status ON scan_jobs(status);`,
 	}
 
+	// Insert initial version if not exists
+	var insertVersion string
+	if db.driverName == "postgres" {
+		insertVersion = `INSERT INTO schema_version (version) VALUES (1) ON CONFLICT DO NOTHING;`
+	} else {
+		insertVersion = `INSERT OR IGNORE INTO schema_version (version) VALUES (1);`
+	}
+	queries = append(queries, insertVersion)
+
 	for _, query := range queries {
 		if _, err := db.Exec(query); err != nil {
 			return err
@@ -166,10 +174,13 @@ func (db *DB) addColIfNotExists(table, col, colType string) error {
 	return err
 }
 
-func (db *DB) ResetInterruptedJobs() error {
+func (db *DB) ResetInterruptedJobs() (int64, error) {
 	query := `UPDATE jobs SET status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE status IN ('downloading', 'downloaded', 'processing', 'printing')`
-	_, err := db.Exec(query)
-	return err
+	res, err := db.Exec(query)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (db *DB) CreateJob(job *models.Job) error {

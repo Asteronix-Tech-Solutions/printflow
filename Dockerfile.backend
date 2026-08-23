@@ -19,7 +19,8 @@ FROM alpine:3.19
 WORKDIR /app
 
 RUN apk add --no-cache ca-certificates cups-client netcat-openbsd tzdata sane-utils sane-backends py3-pip \
-    && pip3 install --break-system-packages img2pdf 2>/dev/null || true
+    && pip3 install --break-system-packages img2pdf \
+    || echo "WARNING: img2pdf not installed — PDF scan conversion will use ImageMagick fallback"
 
 COPY --from=builder /app/pintflow-server .
 

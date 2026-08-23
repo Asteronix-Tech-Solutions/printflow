@@ -49,12 +49,8 @@ func NewManager(deviceName, scannerType string) *Manager {
 }
 
 func (m *Manager) createDriver(sType, deviceName string) Scanner {
-	switch sType {
-	case "sane":
-		return NewSANEScanner(deviceName)
-	default:
-		return NewMockScanner()
-	}
+	// All scanner types use SANE — mock driver removed for production
+	return NewSANEScanner(deviceName)
 }
 
 // UpdateConfig dynamically updates the target scanner device and driver type

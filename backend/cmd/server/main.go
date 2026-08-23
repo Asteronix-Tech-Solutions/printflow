@@ -35,7 +35,7 @@ func main() {
 	// Initialize Database
 	db, err := database.Connect(cfg.DatabaseDriver, cfg.DatabaseURL)
 	if err != nil {
-		fmt.Printf("FATAL: Failed to connect to database at %s: %v\n", cfg.DatabaseURL, err)
+		fmt.Printf("FATAL: Failed to connect to database (%s): %v\n", cfg.DatabaseDriver, err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -53,6 +53,10 @@ func main() {
 	log.SetBroadcaster(broadcaster)
 
 	log.Info(fmt.Sprintf("PintFlow backend starting up... (Database: %s, Port: %s)", cfg.DatabaseDriver, cfg.Port))
+
+	if count, err := db.ResetInterruptedJobs(); err == nil && count > 0 {
+		log.Info(fmt.Sprintf("Reset %d interrupted jobs back to pending state", count))
+	}
 
 	// Restore Printer Settings from DB if present
 	pName, _ := db.GetSetting("printer_name")
@@ -87,9 +91,11 @@ func main() {
 	scannerMgr := scanner.NewManager(targetHostIP, cfg.ScannerType)
 	log.Info(fmt.Sprintf("Scanner driver manager initialized (Type: %s, Centralized Printer/Scanner IP: %s)", cfg.ScannerType, targetHostIP))
 
-	// Start Push-Scan File Watcher (for physical scan button support)
+	// Start Push-Scan File Watcher and Log Cleanup routine
+	watcherCtx, watcherCancel := context.WithCancel(context.Background())
 	pushWatcher := scanner.NewPushScanWatcher(cfg.ScanWatchDir, cfg.ScanDir, db, log, broadcaster)
-	go pushWatcher.Start(ctx)
+	go pushWatcher.Start(watcherCtx)
+	log.StartCleanupRoutine(watcherCtx, 7) // 7 days retention for DB logs
 
 	// Initialize Worker Queue Pool
 	workerPool := queue.NewWorkerPool(db, driveClient, printerMgr, stg, log, cfg.MaxConcurrentJobs)
@@ -103,11 +109,11 @@ func main() {
 	router := api.NewRouter(handler)
 
 	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        ":" + cfg.Port,
+		Handler:     router,
+		ReadTimeout: 15 * time.Second,
+		WriteTimeout: 0, // Disabled globally to support SSE long-lived connections; per-handler timeouts used instead
+		IdleTimeout: 60 * time.Second,
 	}
 
 	// Graceful Shutdown Setup
@@ -123,6 +129,7 @@ func main() {
 	<-stop
 
 	log.Info("Shutting down PintFlow backend server...")
+	watcherCancel() // Stop push-scan file watcher
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

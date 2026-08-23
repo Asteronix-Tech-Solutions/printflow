@@ -19,7 +19,7 @@ type CUPSPrinter struct {
 }
 
 func NewCUPSPrinter(name, address string) *CUPSPrinter {
-	printerName := strings.TrimSpace(name)
+	printerName := sanitizePrinterName(name)
 	if printerName == "" {
 		printerName = "default"
 	}
@@ -121,4 +121,16 @@ func (p *CUPSPrinter) GetStatus(ctx context.Context) (models.PrinterStatus, erro
 		StateReasons:  []string{"idle"},
 		CheckedAt:     time.Now(),
 	}, nil
+}
+
+// sanitizePrinterName ensures the printer name only contains safe characters for shell execution
+func sanitizePrinterName(name string) string {
+	name = strings.TrimSpace(name)
+	var sb strings.Builder
+	for _, c := range name {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' {
+			sb.WriteRune(c)
+		}
+	}
+	return sb.String()
 }

@@ -229,7 +229,7 @@ func (h *Handler) ListJobs(w http.ResponseWriter, r *http.Request) {
 
 	jobs, err := h.db.ListJobs(status, limit, offset)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to list jobs: %v"}`, err), http.StatusInternalServerError)
+	http.Error(w, `{"error":"failed to list jobs"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -299,20 +299,20 @@ func (h *Handler) ManualQueueJob(w http.ResponseWriter, r *http.Request) {
 		rawBytes, err := decodeBase64Flex(payload.FileData)
 		if err != nil {
 			h.logger.Error(fmt.Sprintf("Failed to decode base64 file data for job %s: %v", jobID, err))
-			http.Error(w, fmt.Sprintf(`{"error":"invalid base64 file data: %v"}`, err), http.StatusBadRequest)
+			http.Error(w, `{"error":"invalid base64 file data"}`, http.StatusBadRequest)
 			return
 		}
 		tempPath := h.storage.TempPathForJob(jobID, payload.Filename)
 		if err := os.WriteFile(tempPath, rawBytes, 0644); err != nil {
 			h.logger.Error(fmt.Sprintf("Failed to save uploaded file for job %s: %v", jobID, err))
-			http.Error(w, fmt.Sprintf(`{"error":"failed to save uploaded file: %v"}`, err), http.StatusInternalServerError)
+			http.Error(w, `{"error":"failed to save uploaded file"}`, http.StatusInternalServerError)
 			return
 		}
 		job.GoogleFileID = "" // clear drive ID since file is local
 	}
 
 	if err := h.db.CreateJob(job); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to queue manual job: %v"}`, err), http.StatusInternalServerError)
+		http.Error(w, `{"error":"failed to queue manual job"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -341,7 +341,8 @@ func (h *Handler) RetryJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.db.UpdateJobStatus(job.ID, models.StatusPending, ""); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to retry job: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to retry job %s: %v", job.ID, err))
+		http.Error(w, `{"error":"failed to retry job"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -362,7 +363,8 @@ func (h *Handler) RetryJob(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CancelJob(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.db.UpdateJobStatus(id, models.StatusCancelled, "Cancelled by user"); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to cancel job: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to cancel job %s: %v", id, err))
+		http.Error(w, `{"error":"failed to cancel job"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -382,7 +384,8 @@ func (h *Handler) CancelJob(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetPrinterStatus(w http.ResponseWriter, r *http.Request) {
 	status, err := h.printer.GetStatus(r.Context())
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to get printer status: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to get printer status: %v", err))
+		http.Error(w, `{"error":"failed to get printer status"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -463,7 +466,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, err := h.db.ListLogs(limit)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to fetch logs: %v"}`, err), http.StatusInternalServerError)
+		http.Error(w, `{"error":"failed to fetch logs"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -590,7 +593,8 @@ func (h *Handler) SaveTemplate(w http.ResponseWriter, r *http.Request) {
 	tmpl.IsSystem = false
 
 	if err := h.db.SaveTemplate(&tmpl); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to save template: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to save template: %v", err))
+		http.Error(w, `{"error":"failed to save template"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -605,7 +609,8 @@ func (h *Handler) SaveTemplate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.db.DeleteTemplate(id); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to delete template: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to delete template %s: %v", id, err))
+		http.Error(w, `{"error":"failed to delete template"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -662,7 +667,8 @@ func (h *Handler) PreviewTemplate(w http.ResponseWriter, r *http.Request) {
 
 	renderedHTML, err := h.formatter.RenderFormHTML(dummyJob, payload.TemplateID, payload.TemplateHTML)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to render preview: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to render preview: %v", err))
+		http.Error(w, `{"error":"failed to render preview"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -698,7 +704,8 @@ func (h *Handler) ReformatJob(w http.ResponseWriter, r *http.Request) {
 	_ = h.formatter.GenerateFormSummaryDocument(job, formSummaryHTMLPath)
 
 	if err := h.formatter.GenerateFormSummaryPDF(job, formSummaryPDFPath); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to regenerate form PDF: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to regenerate form PDF for job %s: %v", job.ID, err))
+		http.Error(w, `{"error":"failed to regenerate form PDF"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -725,7 +732,8 @@ func (h *Handler) GetJobPDF(w http.ResponseWriter, r *http.Request) {
 
 	pdfBytes, err := h.formatter.GeneratePDFBytes(job, job.TemplateID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to generate job PDF: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to generate job PDF %s: %v", job.ID, err))
+		http.Error(w, `{"error":"failed to generate job PDF"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -781,7 +789,8 @@ func (h *Handler) PreviewTemplatePDF(w http.ResponseWriter, r *http.Request) {
 
 	pdfBytes, err := h.formatter.GeneratePDFBytes(dummyJob, payload.TemplateID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to generate PDF preview: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to generate PDF preview: %v", err))
+		http.Error(w, `{"error":"failed to generate PDF preview"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -916,7 +925,8 @@ func (h *Handler) ListScanJobs(w http.ResponseWriter, r *http.Request) {
 
 	jobs, err := h.db.ListScanJobs(limit, offset)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"failed to list scan jobs: %v"}`, err), http.StatusInternalServerError)
+		h.logger.Error(fmt.Sprintf("Failed to list scan jobs: %v", err))
+		http.Error(w, `{"error":"failed to list scan jobs"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -956,25 +966,8 @@ func (h *Handler) DownloadScanFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileBytes, err := os.ReadFile(job.LocalPath)
-	if err != nil {
-		http.Error(w, `{"error":"scan file not found on disk"}`, http.StatusNotFound)
-		return
-	}
-
-	// Set content type based on format
-	contentType := "application/pdf"
-	switch job.Format {
-	case "jpeg":
-		contentType = "image/jpeg"
-	case "png":
-		contentType = "image/png"
-	}
-
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", job.Filename))
-	w.Header().Set("Content-Length", strconv.Itoa(len(fileBytes)))
-	_, _ = w.Write(fileBytes)
+	// Stream file directly instead of loading into memory
+	http.ServeFile(w, r, job.LocalPath)
 }
 
 func (h *Handler) GetScannerStatus(w http.ResponseWriter, r *http.Request) {

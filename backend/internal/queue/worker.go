@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -248,15 +249,19 @@ func (wp *WorkerPool) processJob(job *models.Job) {
 }
 
 func isHTMLContent(filePath string) bool {
-	data, err := os.ReadFile(filePath)
-	if err != nil || len(data) == 0 {
+	file, err := os.Open(filePath)
+	if err != nil {
 		return false
 	}
-	maxLen := 512
-	if len(data) < maxLen {
-		maxLen = len(data)
+	defer file.Close()
+
+	buf := make([]byte, 512)
+	n, _ := io.ReadFull(file, buf)
+	if n == 0 {
+		return false
 	}
-	header := strings.ToLower(string(data[:maxLen]))
+
+	header := strings.ToLower(string(buf[:n]))
 	return strings.Contains(header, "<!doctype html") ||
 		strings.Contains(header, "<html") ||
 		strings.Contains(header, "google-analytics") ||

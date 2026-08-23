@@ -127,7 +127,7 @@ func (s *Storage) ArchiveFile(srcPath, jobID, filename string) (string, error) {
 }
 
 func (s *Storage) RemoveTemp(filePath string) {
-	if filePath != "" && filepath.HasPrefix(filePath, s.TempDir) {
+	if filePath != "" && strings.HasPrefix(filepath.Clean(filePath), filepath.Clean(s.TempDir)) {
 		_ = os.Remove(filePath)
 	}
 }

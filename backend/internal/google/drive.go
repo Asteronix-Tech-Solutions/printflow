@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
@@ -80,7 +81,8 @@ func (d *DriveClient) downloadViaHTTP(fileID, destPath string) error {
 	}
 	req.Header.Set("User-Agent", "PintFlow/1.0")
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute HTTP download: %w", err)
 	}

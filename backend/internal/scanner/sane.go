@@ -182,13 +182,6 @@ func (s *SANEScanner) Scan(ctx context.Context, opts ScanOptions) ([]byte, error
 	device := s.resolveDevice(ctx, opts.DeviceName)
 
 	// Determine scanimage output format
-	scanFormat := opts.Format
-	needsPDFConversion := false
-	if scanFormat == "pdf" {
-		scanFormat = "png" // scan as PNG, convert to PDF afterwards
-		needsPDFConversion = true
-	}
-
 	// Build scanimage command
 	args := []string{}
 	if device != "" {
@@ -197,21 +190,19 @@ func (s *SANEScanner) Scan(ctx context.Context, opts ScanOptions) ([]byte, error
 	args = append(args, fmt.Sprintf("--resolution=%d", opts.Resolution))
 
 	// Source parameter (Flatbed / ADF)
-	source := opts.Source
-	if source == "" {
-		source = "Flatbed"
-	}
+	source := validateSource(opts.Source)
 	args = append(args, "--source="+source)
 
 	// Map color mode to SANE mode names
-	mode := "Color"
-	switch strings.ToLower(opts.ColorMode) {
-	case "gray", "grayscale", "grey":
-		mode = "Gray"
-	case "lineart", "bw", "blackwhite", "black_white":
-		mode = "Lineart"
-	}
+	mode := validateMode(opts.ColorMode)
 	args = append(args, "--mode="+mode)
+	
+	scanFormat := validateFormat(opts.Format)
+	needsPDFConversion := false
+	if scanFormat == "pdf" {
+		scanFormat = "png"
+		needsPDFConversion = true
+	}
 	args = append(args, "--format="+scanFormat)
 
 	if opts.OutputPath != "" && !needsPDFConversion {
@@ -339,4 +330,33 @@ func (s *SANEScanner) GetStatus(ctx context.Context) (models.ScannerStatus, erro
 	status.IsOnline = true
 	status.StatusMessage = fmt.Sprintf("%d scanner(s) available and ready", len(devices))
 	return status, nil
+}
+
+func validateSource(src string) string {
+	if strings.EqualFold(src, "ADF") || strings.EqualFold(src, "Automatic Document Feeder") {
+		return "ADF"
+	}
+	return "Flatbed"
+}
+
+func validateMode(mode string) string {
+	switch strings.ToLower(mode) {
+	case "gray", "grayscale", "grey":
+		return "Gray"
+	case "lineart", "bw", "blackwhite", "black_white":
+		return "Lineart"
+	default:
+		return "Color"
+	}
+}
+
+func validateFormat(format string) string {
+	switch strings.ToLower(format) {
+	case "jpeg", "jpg":
+		return "jpeg"
+	case "png":
+		return "png"
+	default:
+		return "pdf"
+	}
 }

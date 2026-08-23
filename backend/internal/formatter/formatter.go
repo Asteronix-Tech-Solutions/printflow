@@ -364,14 +364,6 @@ func (f *Formatter) renderPropertyCheckinPDF(pdf *fpdf.Fpdf, data TemplateDataCo
 }
 
 
-func ternaryInt(cond bool, a, b int) int {
-	if cond {
-		return a
-	}
-	return b
-}
-
-
 func (f *Formatter) renderDefaultTablePDF(pdf *fpdf.Fpdf, data TemplateDataContext) {
 	pdf.AddPage()
 
@@ -762,13 +754,6 @@ func (f *Formatter) extractGuests(data TemplateDataContext) []GuestDetails {
 	}
 
 	return guests
-}
-
-func ternaryStr(cond bool, a, b string) string {
-	if cond {
-		return a
-	}
-	return b
 }
 
 func (f *Formatter) buildTemplateData(job *models.Job) TemplateDataContext {

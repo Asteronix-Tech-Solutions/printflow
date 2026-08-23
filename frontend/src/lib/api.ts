@@ -2,19 +2,8 @@ export const API_BASE_URL = typeof window !== 'undefined'
   ? '/api/v1'
   : (process.env.INTERNAL_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://pintflow_backend:8080/api/v1');
 
-export const API_KEY = process.env.NEXT_PUBLIC_API_KEY || process.env.API_KEY || '';
-
 function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = { ...extraHeaders };
-  let key = API_KEY;
-  if (typeof window !== 'undefined') {
-    const localKey = localStorage.getItem('pintflow_api_key');
-    if (localKey) key = localKey;
-  }
-  if (key) {
-    headers['X-API-Key'] = key;
-  }
-  return headers;
+  return { ...extraHeaders };
 }
 
 export interface FormQuestionAnswer {
@@ -222,24 +211,11 @@ export async function fetchLogs(limit = 100): Promise<{ logs: LogEntry[]; count:
 }
 
 export function getJobPDFUrl(jobId: string): string {
-  const url = `${API_BASE_URL}/jobs/${jobId}/pdf`;
-  if (API_KEY) {
-    return `${url}?api_key=${encodeURIComponent(API_KEY)}`;
-  }
-  return url;
+  return `${API_BASE_URL}/jobs/${jobId}/pdf`;
 }
 
 export function subscribeToEvents(onEvent: (type: string, data: any) => void): EventSource {
-  let key = API_KEY;
-  if (typeof window !== 'undefined') {
-    const localKey = localStorage.getItem('pintflow_api_key');
-    if (localKey) key = localKey;
-  }
-
-  const url = key 
-    ? `${API_BASE_URL}/events?api_key=${encodeURIComponent(key)}`
-    : `${API_BASE_URL}/events`;
-
+  const url = `${API_BASE_URL}/events`;
   const es = new EventSource(url);
 
   const eventTypes = ['connected', 'ping', 'job_updated', 'log_added', 'health_updated', 'scan_updated'];
@@ -286,16 +262,7 @@ export async function fetchScanJob(id: string): Promise<ScanJob> {
 }
 
 export function getScanFileUrl(scanId: string): string {
-  const url = `${API_BASE_URL}/scan/jobs/${scanId}/file`;
-  let key = API_KEY;
-  if (typeof window !== 'undefined') {
-    const localKey = localStorage.getItem('pintflow_api_key');
-    if (localKey) key = localKey;
-  }
-  if (key) {
-    return `${url}?api_key=${encodeURIComponent(key)}`;
-  }
-  return url;
+  return `${API_BASE_URL}/scan/jobs/${scanId}/file`;
 }
 
 export async function fetchScannerStatus(): Promise<{ status: ScannerStatus }> {

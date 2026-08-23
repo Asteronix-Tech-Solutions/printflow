@@ -54,12 +54,12 @@ func TestSANEScannerResolveDevice(t *testing.T) {
 }
 
 func TestManagerUpdateConfig(t *testing.T) {
-	mgr := NewManager("192.168.1.10", "mock")
+	mgr := NewManager("192.168.1.10", "sane")
 	if mgr.GetDeviceName() != "192.168.1.10" {
 		t.Errorf("Initial deviceName = %q; want '192.168.1.10'", mgr.GetDeviceName())
 	}
 
-	mgr.UpdateConfig("192.168.1.99", "mock")
+	mgr.UpdateConfig("192.168.1.99", "sane")
 	if mgr.GetDeviceName() != "192.168.1.99" {
 		t.Errorf("Updated deviceName = %q; want '192.168.1.99'", mgr.GetDeviceName())
 	}

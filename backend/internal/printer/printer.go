@@ -39,12 +39,10 @@ func NewManager(defaultName, defaultType, defaultAddress string) *Manager {
 
 func (m *Manager) createDriver(name, pType, address string) Printer {
 	switch pType {
-	case "cups":
-		return NewCUPSPrinter(name, address)
 	case "ipp", "raw", "lpd":
 		return NewNetworkIPPPrinter(name, address)
 	default:
-		return NewMockPrinter(name)
+		return NewCUPSPrinter(name, address)
 	}
 }
 

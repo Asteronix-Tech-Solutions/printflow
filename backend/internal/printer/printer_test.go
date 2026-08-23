@@ -2,38 +2,13 @@ package printer
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"pintflow/backend/internal/models"
 )
 
-func TestMockPrinter(t *testing.T) {
-	mockPrn := NewMockPrinter("Test_Printer")
-
-	if mockPrn.Name() != "Test_Printer" {
-		t.Errorf("Expected printer name Test_Printer, got %s", mockPrn.Name())
-	}
-
-	ctx := context.Background()
-	status, err := mockPrn.GetStatus(ctx)
-	if err != nil {
-		t.Fatalf("Failed to get printer status: %v", err)
-	}
-
-	if !status.IsOnline {
-		t.Errorf("Expected mock printer to be online")
-	}
-
-	tempFile := filepath.Join(t.TempDir(), "dummy.txt")
-	_ = os.WriteFile(tempFile, []byte("test print"), 0644)
-
-	if err := mockPrn.Print(ctx, tempFile, 1); err != nil {
-		t.Fatalf("Mock print failed: %v", err)
-	}
-}
+// Mock printer removed
 
 func TestNetworkPrinterProbingAndCaching(t *testing.T) {
 	netPrn := NewNetworkIPPPrinter("TestNetPrinter", "127.0.0.1")
@@ -65,18 +40,15 @@ func TestNetworkPrinterProbingAndCaching(t *testing.T) {
 }
 
 func TestManagerAndDiscovery(t *testing.T) {
-	mgr := NewManager("TestPrinter", "mock", "127.0.0.1:9100")
+	mgr := NewManager("TestPrinter", "cups", "127.0.0.1:9100")
 	if mgr.Name() != "TestPrinter" {
 		t.Errorf("Expected TestPrinter, got %s", mgr.Name())
 	}
 
 	ctx := context.Background()
-	status, err := mgr.GetStatus(ctx)
+	_, err := mgr.GetStatus(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get manager printer status: %v", err)
-	}
-	if !status.IsOnline {
-		t.Errorf("Expected mock manager status to be online")
 	}
 
 	// Test config update

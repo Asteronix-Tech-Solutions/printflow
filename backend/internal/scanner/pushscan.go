@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -127,20 +128,13 @@ func (w *PushScanWatcher) processInboxFile(srcPath, filename string, fileSize in
 	}
 
 	// Copy file content
-	buf := make([]byte, 32*1024)
-	for {
-		n, readErr := srcFile.Read(buf)
-		if n > 0 {
-			if _, writeErr := destFile.Write(buf[:n]); writeErr != nil {
-				srcFile.Close()
-				destFile.Close()
-				return
-			}
-		}
-		if readErr != nil {
-			break
-		}
+	if _, err := io.Copy(destFile, srcFile); err != nil {
+		srcFile.Close()
+		destFile.Close()
+		w.logger.Warn(fmt.Sprintf("Push-scan: failed to copy file content: %v", err))
+		return
 	}
+	
 	srcFile.Close()
 	destFile.Close()
 

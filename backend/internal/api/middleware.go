@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/subtle"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -51,10 +52,6 @@ func RequireAPIKey(cfg *config.Config) func(http.Handler) http.Handler {
 					apiKey = strings.TrimPrefix(authHeader, "Bearer ")
 				}
 			}
-			if apiKey == "" {
-				apiKey = r.URL.Query().Get("api_key")
-			}
-
 			if apiKey == "" || subtle.ConstantTimeCompare([]byte(apiKey), []byte(cfg.APIKey)) != 1 {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
@@ -151,9 +148,9 @@ func getClientIP(r *http.Request) string {
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return strings.TrimSpace(xri)
 	}
-	ip := r.RemoteAddr
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
 	}
-	return ip
+	return host
 }

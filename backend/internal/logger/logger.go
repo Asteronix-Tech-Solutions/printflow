@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -112,6 +113,42 @@ func (l *Logger) WarnJ(jobID, msg string) {
 func (l *Logger) Close() {
 	if l.file != nil {
 		_ = l.file.Close()
+	}
+}
+
+// StartCleanupRoutine periodically deletes logs older than retentionDays
+func (l *Logger) StartCleanupRoutine(ctx context.Context, retentionDays int) {
+	if l.db == nil {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		// Run once on startup
+		l.cleanupOldLogs(retentionDays)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				l.cleanupOldLogs(retentionDays)
+			}
+		}
+	}()
+}
+
+func (l *Logger) cleanupOldLogs(retentionDays int) {
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	query := `DELETE FROM logs WHERE timestamp < $1`
+	res, err := l.db.Exec(query, cutoff)
+	if err != nil {
+		l.Error(fmt.Sprintf("Failed to clean up old logs: %v", err))
+		return
+	}
+	if rows, _ := res.RowsAffected(); rows > 0 {
+		l.Info(fmt.Sprintf("Cleaned up %d old log entries", rows))
 	}
 }
 

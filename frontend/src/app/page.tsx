@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { MainLayout } from '../components/MainLayout';
 import { Header } from '../components/Header';
 import { MetricCards } from '../components/MetricCards';
@@ -21,13 +21,19 @@ export default function DashboardPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
+  const activeFilterRef = useRef(activeFilter);
+
+  // Keep ref in sync with state so SSE callback can access latest filter
+  useEffect(() => {
+    activeFilterRef.current = activeFilter;
+  }, [activeFilter]);
 
   const loadData = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const [healthData, jobsData] = await Promise.allSettled([
         fetchHealth(),
-        fetchJobs(activeFilter, 100),
+        fetchJobs(activeFilterRef.current, 100),
       ]);
 
       if (healthData.status === 'fulfilled') setHealth(healthData.value);
@@ -37,12 +43,15 @@ export default function DashboardPage() {
     } finally {
       setIsRefreshing(false);
     }
-  }, [activeFilter]);
+  }, []);
 
-  // Initial load + Real-time SSE event listener
+  // Load data when filter changes
   useEffect(() => {
     loadData();
+  }, [activeFilter, loadData]);
 
+  // SSE subscription — independent of filter changes to prevent reconnection churn
+  useEffect(() => {
     const eventSource = subscribeToEvents((evtType, data) => {
       if (evtType === 'connected' || evtType === 'ping') {
         setSseConnected(true);
